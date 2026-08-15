@@ -1,0 +1,24 @@
+# SELEN — Hero Image Prompt
+
+Premium luxury studio product photograph featuring the uploaded {{productType}} as the exact product reference. The uploaded jewellery is the sole source of truth for the product. {{referenceNote}}
+
+The product is a {{finish}} finish jewellery piece featuring {{stone}} stones, with dimensions of {{dimensions}}, from the {{collections}} collection. Use these details to accurately understand and present the product, but always prioritize the uploaded reference image for its exact design and appearance.
+
+Preserve the exact design, silhouette, proportions, dimensions, construction, gemstone count, size and placement, metalwork, texture, finish, and all defining details. Do not redesign, reinterpret, simplify, add, remove, or modify any part of the jewellery.
+
+Show the jewellery alone as the complete product or matching pair, exactly as applicable, with no attached string, thread, cord, price tag, label, sticker, or packaging. Display it naturally on an elegant ivory suede stand appropriate for the {{productType}}, or laid flat if better suited. It must appear physically supported and never floating.
+
+Place it on a creamy marble surface with subtle veining. Warm ivory, champagne, cream, and beige palette. Soft out-of-focus dried flowers and flowing ivory fabric add depth without distracting from the jewellery.
+
+The jewellery is the clear hero, occupying approximately 45% of the frame, fully visible with comfortable breathing room. Keep the jewellery sharply in focus, especially its {{stone}} stones and defining details, with secondary props and background softly blurred.
+
+Soft diffused studio lighting, gentle warm highlights, realistic {{finish}} metal reflections, accurate gemstone sparkle, natural shadows, and premium material textures. 85mm product photography look, shallow depth of field, creamy bokeh. Editorial luxury styling, minimal centered composition, photorealistic, ultra-detailed, premium boutique ecommerce photography.
+
+Avoid: altered or redesigned jewellery, wrong shape, proportions, or dimensions, missing or extra components/gemstones, altered metalwork, finish, chain, hook or clasp, distorted, duplicate, or asymmetrical jewellery, floating or unsupported pieces; any hands, model, face, or body; text, logos, watermarks, string, thread, price tags, labels, or packaging; cluttered background, distracting props, harsh shadows, blown highlights, excessive sparkle, or unrealistic reflections; CGI, cartoon, or illustration look; blurry or cropped jewellery.
+
+Square 1:1.
+
+--- NEGATIVE PROMPT ---
+Altered or redesigned jewellery, incorrect shape or proportions, incorrect dimensions, missing or extra components, resized, missing or extra gemstones, incorrect stone placement, altered metalwork, incorrect finish, changed chain, hook or clasp, distorted, warped or melted metal, asymmetrical pair, duplicate jewellery, floating jewellery, unsupported jewellery.
+
+Hands, model, face, body, text, letters, logo, watermark, signature, brand mark, stamp, timestamp, string, thread, cord, price tag, label, sticker, packaging, box, cluttered background, distracting props, harsh shadows, blown highlights, excessive sparkle, unrealistic reflections, CGI, 3D render, cartoon, illustration, low detail, blur on jewellery, cropped or incomplete jewellery.

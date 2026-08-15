@@ -1,0 +1,14 @@
+Premium bridal jewellery advertisement featuring a {{productType}}, {{finish}} finish, {{stone}} stone, shown as the only jewellery in the image with no attached string, thread, price tag, or label. {{referenceNote}}
+
+A young woman with soft, elegant styling wears ONLY the {{productType}} exactly where it's naturally worn, with no other rings, earrings, necklaces, bracelets, or accessories anywhere in frame. Glowing skin, soft dewy makeup, elegant ivory satin outfit that complements without distracting. Hair and clothing arranged so nothing covers the jewellery.
+
+Extreme close-up editorial crop tight on the area of the body where the {{productType}} is worn, jewellery occupying 30-40% of frame — it must be the sharpest, unmistakable hero element; face and body render slightly softer. 85mm macro portrait lens, crisp gemstone brilliance, premium metal reflections.
+
+Soft golden-hour side lighting, warm champagne highlights, softly blurred ivory roses and creamy bokeh background. Vogue-style luxury editorial photography, photorealistic, ultra-detailed, 8K.
+
+Avoid: altered jewellery design or proportions, extra or duplicate pieces, any other jewellery or accessories (additional rings, earrings, necklaces, bracelets, watches), full face shown, hair or clothing covering the jewellery, hands touching the jewellery, cluttered background, text, watermarks, string, thread, price tags, or labels; CGI, cartoon, low resolution, or blur; jewellery too small or near the frame edge.
+
+Square 1:1.
+
+--- NEGATIVE PROMPT ---
+Altered jewellery design or proportions, extra or duplicate pieces, other jewellery, additional rings, additional earrings, additional necklaces, additional bracelets, watches, full face shown, hair or clothing covering jewellery, hands touching jewellery, cluttered background, text, watermark, signature, brand mark, stamp, timestamp, string, thread, cord, price tag, label, sticker, tag, CGI, cartoon, low resolution, blur, jewellery small or near frame edge.

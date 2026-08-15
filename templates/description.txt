@@ -1,0 +1,10 @@
+Write a Shopify product description for the luxury jewelry piece titled "{{title}}". Keep it concise (2 to 3 short paragraphs), elegant, and suitable for a premium jewelry brand. Mention the finish and stone naturally, avoid clichés and exclamation points, and end with a short line about styling or occasion. Optimize the language for SEO without keyword stuffing.
+
+Details:
+Product type: {{productType}}
+Finish: {{finish}}
+Stone: {{stone}}
+Dimensions: {{dimensions}}
+Collections: {{collections}}
+
+Respond with only the description text, nothing else.

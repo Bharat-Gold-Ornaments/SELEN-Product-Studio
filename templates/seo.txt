@@ -1,0 +1,5 @@
+Write SEO metadata for the Shopify product "{{title}}", a {{productType}} in {{finish}} finish with {{stone}} stone.
+
+Respond in exactly this format, nothing else:
+SEO Title: <60 characters max, includes the product name and product type>
+Meta Description: <150-160 characters, compelling, includes a soft call to action>

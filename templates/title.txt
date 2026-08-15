@@ -1,0 +1,12 @@
+You are naming a luxury jewelry product for the Shopify store SELEN. Based on the following details, write a product title that is exactly 2 to 3 words, evocative and luxury-sounding, in Title Case, with no punctuation. Do not literally restate the product type unless it reads naturally (e.g. "Luna Twist Ring" is fine, "Earrings Gold Hoops" is not).
+
+Details:
+Product type: {{productType}}
+Finish: {{finish}}
+Stone: {{stone}}
+Dimensions: {{dimensions}}
+Collections: {{collections}}
+
+Examples of the desired style: "Golden Bloom Hoops", "Ocean Pearl Studs", "Luna Twist Ring".
+
+Respond with only the title, nothing else.
