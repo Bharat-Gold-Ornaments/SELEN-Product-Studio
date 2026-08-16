@@ -8,6 +8,7 @@ import {
 } from "@/services/anthropic-copy";
 import { updateProductRow } from "@/services/google-sheets";
 import type { ImagePromptVariables } from "@/lib/generation-variables";
+import type { ProductRecord } from "@/types/product";
 
 export const maxDuration = 60;
 
@@ -66,13 +67,27 @@ const patchSchema = z.object({
   tags: z.array(z.string()),
   seoTitle: z.string(),
   metaDescription: z.string(),
+  // Also accepted (and optional) here rather than as a separate endpoint:
+  // Review's "Continue" is the one moment the user has approved both the
+  // copy AND which image wins each category, so both get persisted in the
+  // same single-row write instead of two round trips. These are the
+  // `/api/drive-image/{fileId}` proxy URLs from the selected
+  // CategoryGenerationResult, not raw Drive file ids — see
+  // services/google-drive.ts's imageProxyUrl. Left out entirely (rather
+  // than sent as "") if a category wasn't selected yet, so an
+  // already-saved pick never gets clobbered with a blank by a later,
+  // unrelated copy-only save.
+  heroImageLink: z.string().optional(),
+  lifestyleImageLink: z.string().optional(),
+  closeupImageLink: z.string().optional(),
 });
 
 /**
- * Saves approved (and possibly hand-edited) copy to the product's Google
- * Sheet row — this is what the Review screen's "Continue" button calls.
- * Nothing here re-generates anything; it's a plain patch via
- * updateProductRow, same as every other write to the sheet.
+ * Saves approved (and possibly hand-edited) copy — and, whichever image was
+ * picked per category — to the product's Google Sheet row. This is what the
+ * Review screen's "Continue" button calls. Nothing here re-generates
+ * anything; it's a plain patch via updateProductRow, same as every other
+ * write to the sheet.
  */
 export async function PATCH(request: Request, { params }: { params: Promise<{ productId: string }> }) {
   const { productId } = await params;
@@ -83,8 +98,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ pr
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid request body." }, { status: 400 });
   }
 
+  // Built explicitly rather than passing parsed.data straight through —
+  // zod's output can carry an `undefined`-valued key for an omitted
+  // optional field, and spreading that into updateProductRow's merge would
+  // overwrite an already-saved image link with undefined. Only include a
+  // link when the request actually sent one.
+  const { title, description, tags, seoTitle, metaDescription, heroImageLink, lifestyleImageLink, closeupImageLink } =
+    parsed.data;
+  const patch: Partial<ProductRecord> = { title, description, tags, seoTitle, metaDescription };
+  if (heroImageLink !== undefined) patch.heroImageLink = heroImageLink;
+  if (lifestyleImageLink !== undefined) patch.lifestyleImageLink = lifestyleImageLink;
+  if (closeupImageLink !== undefined) patch.closeupImageLink = closeupImageLink;
+
   try {
-    await updateProductRow(productId, parsed.data);
+    await updateProductRow(productId, patch);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Couldn't save copy to Google Sheets." },

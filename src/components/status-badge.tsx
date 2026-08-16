@@ -10,6 +10,7 @@ const STATUS_CONFIG: Record<
   published: { label: "Published", variant: "success", icon: CheckCircle2 },
   draft: { label: "Draft", variant: "secondary", icon: FileEdit },
   processing: { label: "Processing", variant: "warning", icon: Loader2 },
+  publishing: { label: "Publishing", variant: "warning", icon: Loader2 },
   failed: { label: "Failed", variant: "destructive", icon: AlertCircle },
 };
 
@@ -18,7 +19,7 @@ export function StatusBadge({ status, className }: { status: ProductStatus; clas
   const Icon = config.icon;
   return (
     <Badge variant={config.variant} className={cn("capitalize", className)}>
-      <Icon className={cn("h-3 w-3", status === "processing" && "animate-spin")} />
+      <Icon className={cn("h-3 w-3", (status === "processing" || status === "publishing") && "animate-spin")} />
       {config.label}
     </Badge>
   );

@@ -57,6 +57,21 @@ function rootFolderId(): string {
   return requireEnv("GOOGLE_DRIVE_ROOT_FOLDER_ID");
 }
 
+/**
+ * Proof the OAuth refresh token still works AND the configured root folder
+ * is actually reachable through it — two separate ways this integration can
+ * be broken (revoked/expired token vs. a stale/wrong folder id), both
+ * surfaced by one real call. Used by Settings' Integration Status panel.
+ */
+export async function checkDriveConnection(): Promise<void> {
+  const drive = getDriveClient();
+  await drive.files.get({
+    fileId: rootFolderId(),
+    fields: "id, name",
+    supportsAllDrives: true,
+  });
+}
+
 // ── Internal helpers ─────────────────────────────────────────────────────
 
 /** Escapes a name for safe use inside a Drive `q` query string literal. */
@@ -94,6 +109,24 @@ const FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
  */
 function imageProxyUrl(fileId: string): string {
   return `/api/drive-image/${fileId}`;
+}
+
+/**
+ * Inverse of imageProxyUrl — pulls the Drive file id back out of a
+ * `/api/drive-image/{fileId}` link. Publish (Milestone 9) needs this: the
+ * Sheet only ever stores the proxy URL for a picked image (see Review's
+ * Continue handler), but publishing to Shopify needs the actual file bytes
+ * via downloadFile(), which takes a raw file id, not a URL. Throws on
+ * anything that doesn't match — a malformed value here means something
+ * upstream saved a link that was never actually one of our own proxy URLs,
+ * which is worth failing loudly on rather than silently downloading garbage.
+ */
+export function driveFileIdFromImageProxyUrl(url: string): string {
+  const match = url.match(/\/api\/drive-image\/([^/?#]+)/);
+  if (!match) {
+    throw new Error(`Not a recognized Drive image URL: ${url}`);
+  }
+  return decodeURIComponent(match[1]);
 }
 
 // ── Public API — matches the spec's function list exactly ──────────────────

@@ -22,6 +22,27 @@ function getClient(): Anthropic {
   return cachedClient;
 }
 
+/**
+ * Proof the API key works, without spending a single completion token — the
+ * SDK version pinned here (0.32.1) predates the `models` resource, so this
+ * hits the same `/v1/models` listing endpoint directly rather than through
+ * the client. It's a metadata read (which models the key can see), not an
+ * inference call, so it costs nothing beyond the request itself. Used by
+ * Settings' Integration Status panel.
+ */
+export async function checkAnthropicConnection(): Promise<void> {
+  const res = await fetch("https://api.anthropic.com/v1/models?limit=1", {
+    headers: {
+      "x-api-key": requireEnv("ANTHROPIC_API_KEY"),
+      "anthropic-version": "2023-06-01",
+    },
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Anthropic API error ${res.status}: ${body || res.statusText}`);
+  }
+}
+
 async function complete(model: string, prompt: string, maxTokens: number): Promise<string> {
   const client = getClient();
   const response = await client.messages.create({

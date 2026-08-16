@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
@@ -23,6 +24,7 @@ import {
 import type { ImageCategory } from "@/types/product";
 
 export function ReviewClient({ productId }: { productId: string }) {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [session, setSession] = useState<GenerationSession | undefined>(() =>
     getGenerationSession(queryClient, productId)
@@ -175,12 +177,21 @@ export function ReviewClient({ productId }: { productId: string }) {
   async function handleContinue() {
     if (!session?.copy) return;
     try {
-      await saveCopy.mutateAsync({ productId, ...session.copy });
+      await saveCopy.mutateAsync({
+        productId,
+        ...session.copy,
+        // Every category is guaranteed selected here (the button is
+        // disabled until allSelected), so these are always real picks, not
+        // placeholders — see the PATCH schema's doc comment for why
+        // omitting (rather than sending "") matters for categories that
+        // aren't selected in other call paths.
+        heroImageLink: session.selected.hero,
+        lifestyleImageLink: session.selected.lifestyle,
+        closeupImageLink: session.selected.closeup,
+      });
       queryClient.invalidateQueries({ queryKey: ["products-list"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-data"] });
-      toast.success("Copy saved.", {
-        description: "Finalize & Publish (Milestone 9) will pick up from here next.",
-      });
+      router.push(`/products/${productId}/finalize`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Couldn't save copy.");
     }

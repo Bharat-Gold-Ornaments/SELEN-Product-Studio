@@ -36,6 +36,19 @@ function tabName(): string {
   return optionalEnv("GOOGLE_SHEETS_TAB_NAME", "Products");
 }
 
+/**
+ * Proof the service account credentials work AND the configured spreadsheet
+ * is actually shared with them — a cheap metadata-only read (just the
+ * title), not a full row fetch. Used by Settings' Integration Status panel.
+ */
+export async function checkSheetsConnection(): Promise<void> {
+  const sheets = getSheetsClient();
+  await sheets.spreadsheets.get({
+    spreadsheetId: spreadsheetId(),
+    fields: "properties.title",
+  });
+}
+
 // ── Row <-> ProductRecord mapping ───────────────────────────────────────
 // One column per ProductRecord field, in this exact order — A through Z.
 // Every product type's type-specific fields (ringSize, claspType, etc.) get
@@ -84,9 +97,27 @@ const COLUMNS = [
   "tags",
   "seoTitle",
   "metaDescription",
+  // Appended for Milestone 9 (Finalize + Publish) — same append-only rule.
+  "price",
 ] as const satisfies readonly (keyof ProductRecord)[];
 
-const LAST_COLUMN_LETTER = "Z"; // 26 columns -> A..Z
+// Converts a 0-based column index to its Sheets column letter(s) — A, B, ...
+// Z, AA, AB, ... Derived from COLUMNS.length rather than hand-counted, so
+// adding a column here never requires remembering to bump a hardcoded
+// letter (COLUMNS grew past 26 with Milestone 9's `price`, so this can no
+// longer just be a single letter).
+function columnLetter(zeroBasedIndex: number): string {
+  let n = zeroBasedIndex + 1;
+  let letters = "";
+  while (n > 0) {
+    const remainder = (n - 1) % 26;
+    letters = String.fromCharCode(65 + remainder) + letters;
+    n = Math.floor((n - 1) / 26);
+  }
+  return letters;
+}
+
+const LAST_COLUMN_LETTER = columnLetter(COLUMNS.length - 1);
 
 function fullRange(): string {
   return `${tabName()}!A:${LAST_COLUMN_LETTER}`;
@@ -159,6 +190,7 @@ function rowToRecord(row: string[]): ProductRecord {
       : [],
     seoTitle: get(24),
     metaDescription: get(25),
+    price: Number(get(26)) || 0,
   };
 }
 
@@ -168,12 +200,6 @@ function rowToRecord(row: string[]): ProductRecord {
 // than requiring a separate manual setup step.
 
 let headerEnsured = false;
-
-function columnLetter(zeroBasedIndex: number): string {
-  // COLUMNS never exceeds 26 entries, so a single letter is always enough —
-  // this intentionally doesn't handle the AA/AB.. case.
-  return String.fromCharCode("A".charCodeAt(0) + zeroBasedIndex);
-}
 
 async function ensureHeaderRow(): Promise<void> {
   if (headerEnsured) return;

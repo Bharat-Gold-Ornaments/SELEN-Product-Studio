@@ -11,6 +11,7 @@ export const PRODUCT_TYPES: { value: ProductType; label: string }[] = [
 export const PRODUCT_STATUSES: { value: ProductStatus; label: string }[] = [
   { value: "draft", label: "Draft" },
   { value: "processing", label: "Processing" },
+  { value: "publishing", label: "Publishing" },
   { value: "published", label: "Published" },
   { value: "failed", label: "Failed" },
 ];

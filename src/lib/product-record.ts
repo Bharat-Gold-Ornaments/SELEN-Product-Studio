@@ -24,6 +24,8 @@ export function buildDraftProductRecord(productId: string, values: ProductFormVa
     stone: values.stone,
     collections: values.collections,
     inventory: Number(values.inventory),
+    // Filled in at Finalize (Milestone 9) — nothing upstream collects a price.
+    price: 0,
     status: "processing" as const,
     // Filled in once the Drive folder is created (services/product-generation.ts).
     driveFolder: "",

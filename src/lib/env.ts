@@ -5,7 +5,7 @@
  * path that actually needs the value) rather than eagerly at module import.
  * Eager/top-level validation would crash `next build` and local development
  * for every developer who hasn't configured every third-party integration
- * yet. Each service module (Leonardo, Google Drive, Sheets, Shopify, n8n,
+ * yet. Each service module (Leonardo, Google Drive, Sheets, Shopify,
  * Anthropic) calls `requireEnv` only when it is actually invoked, so the app
  * always builds and boots, and fails loudly — with a clear message — the
  * moment a specific integration is used without being configured.

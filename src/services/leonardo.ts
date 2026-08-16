@@ -1,7 +1,7 @@
 import "server-only";
 import { requireEnv } from "@/lib/env";
 import { readTemplate, renderTemplate } from "@/services/templates";
-import { DEFAULT_GENERATION_COUNTS } from "@/lib/constants";
+import { readAppSettings } from "@/services/app-settings";
 import type { ImageCategory } from "@/types/product";
 
 // ── Config ───────────────────────────────────────────────────────────────
@@ -114,6 +114,18 @@ async function leonardoFetch<T>(path: string, init?: RequestInit, base: string =
   }
 
   return (await res.json()) as T;
+}
+
+/**
+ * Cheapest possible real proof the API key works — Leonardo's "get current
+ * user" endpoint, not a generation. Used by Settings' Integration Status
+ * panel (api/settings/status/route.ts); throws leonardoFetch's real error
+ * message (bad key, expired key, network issue, etc.) straight through,
+ * which is exactly what a diagnostics panel wants instead of a generic
+ * pass/fail.
+ */
+export async function checkLeonardoConnection(): Promise<void> {
+  await leonardoFetch("/me");
 }
 
 function delay(ms: number): Promise<void> {
@@ -418,21 +430,24 @@ export async function generateHero(
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[]
 ): Promise<string[]> {
-  return generateForCategory("hero", variables, DEFAULT_GENERATION_COUNTS.hero, referenceImages);
+  const settings = await readAppSettings();
+  return generateForCategory("hero", variables, settings.generationCounts.hero, referenceImages);
 }
 
 export async function generateLifestyle(
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[]
 ): Promise<string[]> {
-  return generateForCategory("lifestyle", variables, DEFAULT_GENERATION_COUNTS.lifestyle, referenceImages);
+  const settings = await readAppSettings();
+  return generateForCategory("lifestyle", variables, settings.generationCounts.lifestyle, referenceImages);
 }
 
 export async function generateCloseup(
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[]
 ): Promise<string[]> {
-  return generateForCategory("closeup", variables, DEFAULT_GENERATION_COUNTS.closeup, referenceImages);
+  const settings = await readAppSettings();
+  return generateForCategory("closeup", variables, settings.generationCounts.closeup, referenceImages);
 }
 
 // ── Orchestration ────────────────────────────────────────────────────────

@@ -5,7 +5,7 @@ export type ProductType =
   | "necklace"
   | "bracelet";
 
-export type ProductStatus = "draft" | "processing" | "published" | "failed";
+export type ProductStatus = "draft" | "processing" | "publishing" | "published" | "failed";
 
 export type ImageCategory = "hero" | "lifestyle" | "closeup";
 
@@ -92,6 +92,8 @@ export interface ProductRecord {
   chainIncluded: boolean | null;
   collections: string[];
   inventory: number;
+  /** Set at Finalize (Milestone 9) — nothing upstream of Finalize collects a price. Zero until then. */
+  price: number;
   status: ProductStatus;
   driveFolder: string;
   heroImageLink: string;

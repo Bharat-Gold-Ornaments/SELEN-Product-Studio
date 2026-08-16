@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { Camera, FolderOpen, Loader2 } from "lucide-react";
+import { Camera, FolderOpen, Loader2, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,7 +38,7 @@ export function UploadsClient() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: photos, isLoading, isError, error } = usePoolPhotos();
+  const { data: photos, isLoading, isError, error, refetch, isFetching } = usePoolPhotos();
   const upload = useUploadPoolPhotos();
   const tag = useTagPoolPhoto();
 
@@ -155,8 +155,14 @@ export function UploadsClient() {
       </div>
 
       {isError ? (
-        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {error instanceof Error ? error.message : "Couldn't load uploaded photos."}
+        <div className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm sm:flex-row sm:items-center">
+          <span className="text-destructive">
+            {error instanceof Error ? error.message : "Couldn't load uploaded photos."}
+          </span>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            Retry
+          </Button>
         </div>
       ) : null}
 

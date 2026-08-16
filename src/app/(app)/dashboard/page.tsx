@@ -1,11 +1,12 @@
 "use client";
 
-import { Boxes, CheckCircle2, FileEdit, Loader2 } from "lucide-react";
+import { Boxes, CheckCircle2, FileEdit, Loader2, RefreshCw } from "lucide-react";
 import { PageShell } from "@/components/layout/page-shell";
 import { StatCard, StatCardSkeleton } from "@/components/dashboard/stat-card";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { ProductRow } from "@/components/dashboard/product-row";
 import { ProcessingRow } from "@/components/dashboard/processing-row";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDashboardData } from "@/hooks/use-dashboard-data";
 
@@ -29,7 +30,7 @@ function SectionSkeleton() {
 }
 
 export default function DashboardPage() {
-  const { data, isLoading, isError, error } = useDashboardData();
+  const { data, isLoading, isError, error, refetch, isFetching } = useDashboardData();
 
   return (
     <PageShell
@@ -50,8 +51,14 @@ export default function DashboardPage() {
       </div>
 
       {isError ? (
-        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {error instanceof Error ? error.message : "Couldn't load dashboard data. Try refreshing the page."}
+        <div className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm sm:flex-row sm:items-center">
+          <span className="text-destructive">
+            {error instanceof Error ? error.message : "Couldn't load dashboard data. Try refreshing the page."}
+          </span>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            Retry
+          </Button>
         </div>
       ) : null}
 

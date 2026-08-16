@@ -24,6 +24,11 @@
 .DS_Store
 *.pem
 
+# runtime-editable app settings (services/app-settings.ts) — local/per-deploy
+# state, not source; unlike /templates this isn't seed content worth
+# committing.
+/data/app-settings.json
+
 # debug
 npm-debug.log*
 yarn-debug.log*

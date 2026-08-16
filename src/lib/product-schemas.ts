@@ -65,7 +65,7 @@ const baseShape = {
   stone: z.string().min(1, 'Enter a stone, or "None"'),
   collections: z.array(z.string()).default([]),
   inventory: wholeNumberString,
-  status: z.enum(["draft", "processing", "published", "failed"]).default("draft"),
+  status: z.enum(["draft", "processing", "publishing", "published", "failed"]).default("draft"),
 };
 
 export const earringsSchema = z.object({

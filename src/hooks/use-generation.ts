@@ -374,6 +374,10 @@ export function useRegenerateCopyField() {
 
 interface SaveCopyInput extends ProductCopy {
   productId: string;
+  /** The picked image URL per category — see the PATCH schema's doc comment in api/products/[productId]/copy/route.ts for why omitted (not "") matters. */
+  heroImageLink?: string;
+  lifestyleImageLink?: string;
+  closeupImageLink?: string;
 }
 
 /** Saves approved (possibly hand-edited) copy to the product's Google Sheet row — what "Continue" calls. */
