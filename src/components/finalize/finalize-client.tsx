@@ -150,15 +150,21 @@ export function FinalizeClient({ productId }: { productId: string }) {
         </CardHeader>
         <CardContent className="flex flex-col gap-4 pt-0 sm:flex-row">
           <div className="flex-1 space-y-1.5">
-            <Label>Price (USD)</Label>
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="0.00"
-            />
+            <Label>Price (INR)</Label>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                ₹
+              </span>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="0.00"
+                className="pl-7"
+              />
+            </div>
           </div>
           <div className="flex-1 space-y-1.5">
             <Label>Inventory</Label>

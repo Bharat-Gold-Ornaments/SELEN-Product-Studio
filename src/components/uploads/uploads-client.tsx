@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { Camera, FolderOpen, Loader2, RefreshCw } from "lucide-react";
+import { Camera, FolderOpen, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +18,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PRODUCT_TYPES, POOL_PHOTO_ANGLES } from "@/lib/constants";
-import { usePoolPhotos, useUploadPoolPhotos, useTagPoolPhoto, type PoolPhotoAngle } from "@/hooks/use-pool-photos";
+import {
+  usePoolPhotos,
+  useUploadPoolPhotos,
+  useTagPoolPhoto,
+  useDeletePoolPhoto,
+  type PoolPhotoAngle,
+} from "@/hooks/use-pool-photos";
 import type { ProductType } from "@/types/product";
 
 const ANGLE_LABEL = Object.fromEntries(POOL_PHOTO_ANGLES.map((a) => [a.value, a.label])) as Record<
@@ -41,6 +47,14 @@ export function UploadsClient() {
   const { data: photos, isLoading, isError, error, refetch, isFetching } = usePoolPhotos();
   const upload = useUploadPoolPhotos();
   const tag = useTagPoolPhoto();
+  const deletePhoto = useDeletePoolPhoto();
+
+  function handleDelete(fileId: string, name: string) {
+    if (!window.confirm(`Delete "${name}" from the pool? This can't be undone.`)) return;
+    deletePhoto.mutate(fileId, {
+      onError: (err) => toast.error(err instanceof Error ? err.message : "Couldn't delete this photo."),
+    });
+  }
 
   async function handleFilesPicked(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
@@ -188,6 +202,15 @@ export function UploadsClient() {
                       Used
                     </Badge>
                   ) : null}
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(photo.fileId, photo.name)}
+                    disabled={deletePhoto.isPending}
+                    aria-label={`Delete ${photo.name}`}
+                    className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-foreground/60 text-background transition-colors hover:bg-destructive disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
                 <Select
                   value={photo.angle}

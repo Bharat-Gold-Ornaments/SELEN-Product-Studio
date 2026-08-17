@@ -249,9 +249,14 @@ export interface PublishProductInput extends CreateShopifyProductInput {
  * `productVariantsBulkUpdate` + a separate inventory call) is Shopify's
  * current recommended single-request way to do this — every field lands
  * atomically instead of the product briefly existing half-configured
- * between several calls. No `productOptions` are declared here since these
- * are always single-variant listings (no size/color choices to make), which
- * gets each product Shopify's automatic default "Title" variant.
+ * between several calls. Every product here is a single-variant listing (no
+ * real size/color choices to make), which used to just get Shopify's
+ * implicit default "Title"/"Default Title" option/value pair for free with
+ * no input needed. Current API versions no longer infer that: `productSet`
+ * now rejects the call unless `productOptions` is declared AND each variant's
+ * `optionValues` explicitly references it — so this spells out that same
+ * single default option/value pair by hand instead of relying on it being
+ * automatic.
  * https://shopify.dev/docs/api/admin-graphql/latest/mutations/productSet
  */
 async function createShopifyProduct(input: CreateShopifyProductInput): Promise<string> {
@@ -294,10 +299,15 @@ async function createShopifyProduct(input: CreateShopifyProductInput): Promise<s
         // pipeline enough to skip that manual review step.
         status: "DRAFT",
         files,
+        // The single default option every variantless-options product gets —
+        // see this function's doc comment for why this has to be spelled out
+        // explicitly now instead of just omitted.
+        productOptions: [{ name: "Title", values: [{ name: "Default Title" }] }],
         variants: [
           {
             price: input.price,
             inventoryQuantities: [{ locationId, name: "available", quantity: input.inventory }],
+            optionValues: [{ optionName: "Title", name: "Default Title" }],
           },
         ],
       },

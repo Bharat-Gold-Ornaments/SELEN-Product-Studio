@@ -28,7 +28,7 @@ export function PoolPhotoPicker({ open, onOpenChange, angle, productType, onPick
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[80vh] max-w-lg overflow-y-auto rounded-2xl border border-border bg-card p-4 shadow-xl">
+      <DialogContent className="max-h-[85vh] max-w-5xl overflow-y-auto rounded-2xl border border-border bg-card p-4 shadow-xl">
         <DialogTitle>Choose a {angle} photo from Uploads</DialogTitle>
 
         {isLoading ? (
@@ -59,13 +59,13 @@ export function PoolPhotoPicker({ open, onOpenChange, angle, productType, onPick
 
 function PickerGrid({ photos, onPick }: { photos: PoolPhoto[]; onPick: (photo: PoolPhoto) => void }) {
   return (
-    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
       {photos.map((photo) => (
         <button
           key={photo.fileId}
           type="button"
           onClick={() => onPick(photo)}
-          className="relative aspect-square overflow-hidden rounded-lg border-2 border-transparent transition-colors hover:border-primary"
+          className="relative aspect-square overflow-hidden rounded-xl border-2 border-transparent transition-colors hover:border-primary"
         >
           <Image src={photo.publicUrl} alt={photo.name} fill unoptimized className="object-cover" />
         </button>

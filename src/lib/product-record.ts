@@ -55,8 +55,11 @@ export function buildDraftProductRecord(productId: string, values: ProductFormVa
         lengthCm: null,
         widthCm: null,
         hookType: null,
-        ringSize: values.ringSize,
-        bandWidthMm: Number(values.bandWidthMm),
+        // Both optional now (see product-schemas.ts) — `Number("")` is 0,
+        // not a useful "unset" value, so an empty string maps to null
+        // instead of silently recording a 0mm band width.
+        ringSize: values.ringSize || null,
+        bandWidthMm: values.bandWidthMm ? Number(values.bandWidthMm) : null,
         claspType: null,
         chainIncluded: null,
       };

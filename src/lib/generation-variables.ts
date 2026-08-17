@@ -10,13 +10,30 @@ export interface ImagePromptVariables {
   collections: string;
 }
 
+/**
+ * Ring size and band width are both optional on the form (see
+ * product-schemas.ts), so this can't just interpolate blindly the way the
+ * other product types' dimension strings do — an empty value would leave a
+ * dangling "size , mm band" in the image prompt. Falls back to a plain-
+ * English placeholder when neither is set, since the templates always
+ * expect *something* to fill {{dimensions}}.
+ */
+function formatRingDimensions(ringSize: string, bandWidthMm: string): string {
+  const size = ringSize.trim();
+  const band = bandWidthMm.trim();
+  if (size && band) return `size ${size}, ${band}mm band`;
+  if (size) return `size ${size}`;
+  if (band) return `${band}mm band`;
+  return "an unspecified size";
+}
+
 function formatDimensions(values: ProductFormValues): string {
   switch (values.productType) {
     case "earrings":
     case "pendant":
       return `${values.lengthCm}cm x ${values.widthCm}cm`;
     case "ring":
-      return `size ${values.ringSize}, ${values.bandWidthMm}mm band`;
+      return formatRingDimensions(values.ringSize, values.bandWidthMm);
     case "necklace":
     case "bracelet":
       return `${values.lengthCm}cm, ${values.claspType}`;
@@ -33,7 +50,7 @@ function formatDimensionsFromRecord(record: ProductRecord): string {
     case "pendant":
       return `${record.lengthCm}cm x ${record.widthCm}cm`;
     case "ring":
-      return `size ${record.ringSize}, ${record.bandWidthMm}mm band`;
+      return formatRingDimensions(record.ringSize ?? "", record.bandWidthMm != null ? String(record.bandWidthMm) : "");
     case "necklace":
     case "bracelet":
       return `${record.lengthCm}cm, ${record.claspType}`;

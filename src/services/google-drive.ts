@@ -504,6 +504,16 @@ export async function tagPoolPhoto(fileId: string, angle: PoolPhotoAngle): Promi
 }
 
 /**
+ * Removes a photo from the pool entirely. Just a thin, named wrapper over
+ * the generic deleteItem — there's no separate index to keep in sync, since
+ * listPoolPhotos queries Drive directly (see the "Upload pool" note above),
+ * so deleting the file is the whole operation.
+ */
+export async function deletePoolPhoto(fileId: string): Promise<void> {
+  await deleteItem(fileId);
+}
+
+/**
  * Downloads a file's raw bytes straight from Drive — used to pull a
  * pool-picked photo's content for image-to-image generation and for
  * copying it into the product's own `originals` folder, the same as a

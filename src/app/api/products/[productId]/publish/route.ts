@@ -3,7 +3,7 @@ import { z } from "zod";
 import { findProduct, updateProductRow } from "@/services/google-sheets";
 import { downloadFile, driveFileIdFromImageProxyUrl } from "@/services/google-drive";
 import { publishProductToShopify, type ShopifyImageInput } from "@/services/shopify";
-import { PRODUCT_TYPES, IMAGE_CATEGORY_LABELS } from "@/lib/constants";
+import { PRODUCT_TYPES } from "@/lib/constants";
 import type { ImageCategory } from "@/types/product";
 
 export const maxDuration = 90;
@@ -38,9 +38,10 @@ const IMAGE_CATEGORIES_IN_LISTING_ORDER: ImageCategory[] = ["hero", "lifestyle",
 /**
  * Publishes a finalized product to Shopify — the Finalize screen's "Publish"
  * button. Requires Review's Continue to have already run (needs a saved
- * title/description/tags/SEO and all three image picks); price/inventory
+ * title/description/tags/SEO and at least one image pick — Review lets a
+ * category go unpicked, so this can't demand all three); price/inventory
  * come from this request since Finalize is where those are actually set.
- * Downloads the three picked images' real bytes from Drive (never a public
+ * Downloads whichever picked images' real bytes from Drive (never a public
  * URL — see driveFileIdFromImageProxyUrl's doc comment) and hands
  * everything to services/shopify.ts in one call.
  */
@@ -72,12 +73,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
     lifestyle: record.lifestyleImageLink,
     closeup: record.closeupImageLink,
   };
-  const missing = IMAGE_CATEGORIES_IN_LISTING_ORDER.filter((category) => !linkByCategory[category]);
-  if (missing.length > 0) {
+  // At least one picked image is enough — Review allows a subset (see
+  // review-client.tsx's hasSelection), so this can't require every category,
+  // only that the product isn't going out with zero images entirely.
+  const picked = IMAGE_CATEGORIES_IN_LISTING_ORDER.filter((category) => linkByCategory[category]);
+  if (picked.length === 0) {
     return NextResponse.json(
-      {
-        error: `Missing ${missing.map((c) => IMAGE_CATEGORY_LABELS[c]).join(", ")} — pick an image for every category on Review before publishing.`,
-      },
+      { error: "This product has no picked images — pick at least one image on Review before publishing." },
       { status: 400 }
     );
   }
@@ -98,7 +100,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
 
   try {
     const images: ShopifyImageInput[] = await Promise.all(
-      IMAGE_CATEGORIES_IN_LISTING_ORDER.map(async (category) => {
+      picked.map(async (category) => {
         const fileId = driveFileIdFromImageProxyUrl(linkByCategory[category]);
         const { buffer, mimeType } = await downloadFile(fileId);
         return {

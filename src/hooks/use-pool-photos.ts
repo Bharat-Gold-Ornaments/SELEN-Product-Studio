@@ -106,3 +106,20 @@ export function useTagPoolPhoto() {
     },
   });
 }
+
+export function useDeletePoolPhoto() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (fileId: string) => {
+      const res = await fetch(`/api/uploads/${fileId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "Couldn't delete this photo.");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pool-photos"] });
+    },
+  });
+}

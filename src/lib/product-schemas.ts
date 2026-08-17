@@ -36,6 +36,12 @@ const positiveNumberString = (label: string) =>
     .min(1, `${label} is required`)
     .refine((v) => !Number.isNaN(Number(v)) && Number(v) > 0, `Enter a valid ${label.toLowerCase()}`);
 
+/** Same as positiveNumberString, but an empty string is valid too — for fields that aren't always known up front. */
+const optionalPositiveNumberString = (label: string) =>
+  z
+    .string()
+    .refine((v) => v === "" || (!Number.isNaN(Number(v)) && Number(v) > 0), `Enter a valid ${label.toLowerCase()}`);
+
 const wholeNumberString = z
   .string()
   .min(1, "Inventory is required")
@@ -79,8 +85,8 @@ export const earringsSchema = z.object({
 export const ringSchema = z.object({
   productType: z.literal("ring"),
   ...baseShape,
-  ringSize: z.string().min(1, "Select a ring size"),
-  bandWidthMm: positiveNumberString("Band width"),
+  ringSize: z.string(),
+  bandWidthMm: optionalPositiveNumberString("Band width"),
 });
 
 export const pendantSchema = z.object({
@@ -142,8 +148,8 @@ export const EXTRA_FIELDS: Record<ProductType, ExtraFieldConfig[]> = {
     { name: "hookType", label: "Hook Type", type: "select", options: HOOK_TYPE_OPTIONS },
   ],
   ring: [
-    { name: "ringSize", label: "Ring Size", type: "select", options: RING_SIZE_OPTIONS },
-    { name: "bandWidthMm", label: "Band Width (mm)", type: "number", step: "any" },
+    { name: "ringSize", label: "Ring Size (optional)", type: "select", options: RING_SIZE_OPTIONS },
+    { name: "bandWidthMm", label: "Band Width (mm, optional)", type: "number", step: "any" },
   ],
   pendant: [
     { name: "lengthCm", label: "Length (cm)", type: "number", step: "any" },

@@ -45,9 +45,13 @@ export function ReviewClient({ productId }: { productId: string }) {
     }
   }, [session, reviewQuery.data]);
 
-  const allSelected = useMemo(() => {
+  // At least one category picked is enough to continue — not every category
+  // needs an image. A category left unpicked (or whose generation failed)
+  // just doesn't get sent to Shopify later; see handleContinue below, where
+  // an unselected category's link is naturally omitted rather than forced.
+  const hasSelection = useMemo(() => {
     if (!session) return false;
-    return IMAGE_CATEGORIES.every((category) => {
+    return IMAGE_CATEGORIES.some((category) => {
       const result = session.imageResults.find((r) => r.category === category);
       return result?.status === "success" && Boolean(session.selected[category]);
     });
@@ -180,11 +184,10 @@ export function ReviewClient({ productId }: { productId: string }) {
       await saveCopy.mutateAsync({
         productId,
         ...session.copy,
-        // Every category is guaranteed selected here (the button is
-        // disabled until allSelected), so these are always real picks, not
-        // placeholders — see the PATCH schema's doc comment for why
-        // omitting (rather than sending "") matters for categories that
-        // aren't selected in other call paths.
+        // Only whichever categories actually got a pick — session.selected
+        // simply has no key for a skipped/unpicked category, and that
+        // `undefined` is what tells the PATCH route to leave it out rather
+        // than send an empty placeholder. See that route's schema comment.
         heroImageLink: session.selected.hero,
         lifestyleImageLink: session.selected.lifestyle,
         closeupImageLink: session.selected.closeup,
@@ -200,11 +203,11 @@ export function ReviewClient({ productId }: { productId: string }) {
   return (
     <PageShell
       title="Review"
-      description={`Product ${productId} — pick one image per category, or regenerate any that need another pass.`}
+      description={`Product ${productId} — pick at least one image to continue, or regenerate any that need another pass.`}
       actions={
         <Button
           onClick={handleContinue}
-          disabled={!allSelected || !session.copy || saveCopy.isPending}
+          disabled={!hasSelection || !session.copy || saveCopy.isPending}
         >
           {saveCopy.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           Continue
