@@ -1,4 +1,5 @@
 import { ProductThumb } from "@/components/product-thumb";
+import { ProductDeleteMenu } from "@/components/product-delete-menu";
 import { StatusBadge } from "@/components/status-badge";
 import { PRODUCT_TYPES } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
@@ -21,6 +22,7 @@ export function ProductRow({ product }: { product: ProductRecord }) {
         </span>
       </div>
       <StatusBadge status={product.status} />
+      <ProductDeleteMenu product={product} />
     </div>
   );
 }

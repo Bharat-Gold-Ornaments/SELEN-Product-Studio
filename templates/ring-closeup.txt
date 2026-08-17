@@ -1,0 +1,41 @@
+# SELEN — Close-up Ring Prompt
+
+Create a premium luxury jewellery close-up photograph using the uploaded ring as the exact product reference. The uploaded jewellery is the sole source of truth for the product. {{referenceNote}}
+
+The ring has a {{finish}} finish, features {{stone}} stones, has dimensions of {{dimensions}}, and belongs to the {{collections}} collection. Use these details to accurately understand the product, but always prioritize the uploaded reference image for its exact design and appearance.
+
+Preserve the exact ring design, silhouette, proportions, dimensions, band diameter, band thickness, band profile, setting height, gemstone count, gemstone size and placement, metalwork, shoulders, gallery, prongs, bezels, settings, texture, finish, and every other construction detail. Do not redesign, reinterpret, simplify, resize, add, remove, or modify any part of the ring.
+
+Show exactly one ring: the uploaded ring. Never show a second ring, duplicate ring, stacked ring, or any additional jewellery.
+
+Display the ring naturally resting on a polished creamy marble surface. Position it upright or at a carefully supported three-quarter angle, depending on the uploaded design, so the ring's face, gemstone setting, side profile, band thickness, gallery, shoulders, and construction are clearly visible.
+
+The ring must remain physically supported and grounded. Do not allow it to float. Do not flatten, stretch, bend, distort, or alter the original circular or product-specific band shape.
+
+Choose a camera angle approximately 30–45 degrees from the primary front view. The purpose is to reveal the ring's depth and construction while keeping its defining front design clearly readable.
+
+The ring should occupy approximately 50–60% of the frame while remaining completely visible with comfortable breathing room. Keep the entire ring structure in focus, especially the {{stone}} stones, setting, prongs, gallery, and band.
+
+Use a minimal polished creamy marble surface with extremely subtle natural veining. Maintain a warm ivory, champagne, cream, and soft beige SELEN palette. Avoid flowers, ribbons, excessive fabric, crystals, decorative props, packaging, or clutter.
+
+Use soft diffused professional studio lighting with controlled highlights to reveal realistic {{finish}} metal reflections, gemstone brilliance, setting depth, band curvature, and fine surface texture. Avoid reflections that obscure the gemstone or distort the appearance of the ring.
+
+Use a 100mm macro product photography look with sufficient depth of field to keep the complete ring and its critical construction details sharply visible. Luxury boutique jewellery macro photography, premium ecommerce detail shot, editorial minimalism, photorealistic, ultra-detailed, realistic materials and craftsmanship.
+
+Square 1:1 composition.
+
+## Negative Prompt
+
+More than one ring, two rings, duplicate ring, stacked rings, additional ring, altered or redesigned ring, incorrect shape, proportions, dimensions, band diameter, band thickness, band profile, setting height, gemstone count, gemstone size, gemstone placement, altered shoulders, gallery, prongs, bezel, setting, metalwork, incorrect {{finish}} finish, missing or extra components, distorted, warped, bent, stretched, flattened, melted, deformed ring.
+
+Incorrect band geometry, oval or flattened band when not present in the original, impossible ring perspective, floating ring, unsupported ring, unrealistic contact shadows.
+
+Model, hand, fingers, wrist, ear, neck, face, body, worn jewellery, earrings, necklace, pendant, bracelet, bangle, watch, text, logo, watermark, signature, price tag, label, packaging, jewellery box, excessive props, flowers, ribbons, fabric covering jewellery, cluttered background.
+
+CGI, 3D render, cartoon, illustration, unrealistic marble, harsh reflections, blown highlights, dark shadows, excessive sparkle, unrealistic materials, low detail, low resolution, blur on ring, cropped or incomplete ring.
+
+## Camera & Lighting
+
+100mm macro lens look, approximately f/8, ISO 100, precision tripod-style product composition, soft diffused key light from 45 degrees, subtle rim light revealing the band and setting depth, controlled reflections, sufficient depth of field for complete ring sharpness.
+
+Exactly one ring must appear in the entire image. The close-up must clearly reveal its face, side profile, setting height, gallery, gemstone construction, and band thickness.

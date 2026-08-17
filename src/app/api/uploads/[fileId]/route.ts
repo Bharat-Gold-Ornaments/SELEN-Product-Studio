@@ -1,16 +1,38 @@
 import { NextResponse } from "next/server";
-import { deletePoolPhoto, tagPoolPhoto, type PoolPhotoAngle } from "@/services/google-drive";
+import {
+  deletePoolPhoto,
+  markPoolPhotoUnused,
+  tagPoolPhoto,
+  type PoolPhotoAngle,
+} from "@/services/google-drive";
 
 const VALID_ANGLES = new Set(["front", "side", "worn", "other"]);
 
-/** Sets a pool photo's angle tag — called from the Uploads gallery. */
+/**
+ * Two independent, optional actions on a pool photo, called from the
+ * Uploads gallery — send whichever one applies: `{ angle }` to re-tag it, or
+ * `{ used: false }` to clear its "used by a product" flag so it shows up as
+ * pickable again (the only direction this can go — a photo only ever gets
+ * marked used by the Generate flow itself, never by this route).
+ */
 export async function PATCH(request: Request, { params }: { params: Promise<{ fileId: string }> }) {
   const { fileId } = await params;
   const body = await request.json().catch(() => null);
-  const angle = body?.angle;
 
+  if (body && typeof body === "object" && body.used === false) {
+    try {
+      await markPoolPhotoUnused(fileId);
+      return NextResponse.json({ ok: true });
+    } catch (error) {
+      console.error(`Failed to mark pool photo ${fileId} as unused`, error);
+      const message = error instanceof Error ? error.message : "Couldn't update this photo.";
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+  }
+
+  const angle = body?.angle;
   if (typeof angle !== "string" || !VALID_ANGLES.has(angle)) {
-    return NextResponse.json({ error: "Invalid angle." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
   try {

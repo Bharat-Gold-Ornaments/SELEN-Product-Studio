@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Loader2, RefreshCw, Search, TriangleAlert } from "lucide-react";
 import { ProductThumb } from "@/components/product-thumb";
+import { ProductDeleteMenu } from "@/components/product-delete-menu";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -142,6 +143,7 @@ export function ProductsClient() {
                   </span>
                 </div>
                 <StatusBadge status={product.status} />
+                <ProductDeleteMenu product={product} />
               </Link>
             ))}
           </div>

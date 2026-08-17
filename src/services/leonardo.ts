@@ -2,7 +2,8 @@ import "server-only";
 import { requireEnv } from "@/lib/env";
 import { readTemplate, renderTemplate } from "@/services/templates";
 import { readAppSettings } from "@/services/app-settings";
-import type { ImageCategory } from "@/types/product";
+import { imageTemplateId } from "@/lib/template-categories";
+import type { ImageCategory, ProductType } from "@/types/product";
 
 // ── Config ───────────────────────────────────────────────────────────────
 
@@ -20,14 +21,13 @@ const FLUX_KONTEXT_PRO_MODEL = "flux-kontext-pro";
 const V2_MODELS = new Set<string>([GPT_IMAGE_2_MODEL, FLUX_KONTEXT_PRO_MODEL]);
 const IMAGE_SIZE = { width: 1024, height: 1024 };
 // How strongly image-to-image generations should stick to the uploaded
-// reference photo (0 = ignore it, 1 = near-identical). 0.5 is Leonardo's own
-// documented example value and a reasonable starting point for jewelry: high
-// enough to keep the real piece recognizable, low enough to let the prompt's
-// styling (marble, lighting, model, etc.) actually take effect. Tune this
-// after looking at real output — image-to-image fidelity for fine jewelry
-// detail is inherently imperfect and may need adjusting per model.
+// reference photo (0 = ignore it, 1 = near-identical). Set high (not 1.0
+// flat out, since Leonardo's own guidance treats the extreme top of the
+// range as prone to artifacting) to keep generated jewelry as faithful as
+// possible to the real uploaded piece — accuracy to the actual product
+// matters more here than letting the prompt's styling take liberties.
 // Only applies to v1 models (init_strength is a v1-only field).
-const IMAGE_TO_IMAGE_STRENGTH = 0.5;
+const IMAGE_TO_IMAGE_STRENGTH = 0.9;
 // v2 models that support image reference guidance (FLUX Kontext, Nano
 // Banana, etc.) use a bucketed LOW/MID/HIGH strength instead of a continuous
 // 0-1 dial. HIGH biases hardest toward preserving the uploaded reference
@@ -403,12 +403,13 @@ const REFERENCE_NOTE =
 // last-resort safety net, not the primary defense; the shipped templates are
 // written to leave comfortable headroom on their own.
 async function generateForCategory(
+  productType: ProductType,
   category: ImageCategory,
   variables: ImagePromptVariables,
   numImages: number,
   referenceImages?: ReferenceImage[]
 ): Promise<string[]> {
-  const template = await readTemplate(category);
+  const template = await readTemplate(imageTemplateId(productType, category));
   const [positiveRaw, negativeRaw] = template.content.split(NEGATIVE_PROMPT_DELIMITER);
 
   const hasReference = Boolean(referenceImages && referenceImages.length > 0);
@@ -427,27 +428,36 @@ async function generateForCategory(
 }
 
 export async function generateHero(
+  productType: ProductType,
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[]
 ): Promise<string[]> {
   const settings = await readAppSettings();
-  return generateForCategory("hero", variables, settings.generationCounts.hero, referenceImages);
+  return generateForCategory(productType, "hero", variables, settings.generationCounts.hero, referenceImages);
 }
 
 export async function generateLifestyle(
+  productType: ProductType,
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[]
 ): Promise<string[]> {
   const settings = await readAppSettings();
-  return generateForCategory("lifestyle", variables, settings.generationCounts.lifestyle, referenceImages);
+  return generateForCategory(
+    productType,
+    "lifestyle",
+    variables,
+    settings.generationCounts.lifestyle,
+    referenceImages
+  );
 }
 
 export async function generateCloseup(
+  productType: ProductType,
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[]
 ): Promise<string[]> {
   const settings = await readAppSettings();
-  return generateForCategory("closeup", variables, settings.generationCounts.closeup, referenceImages);
+  return generateForCategory(productType, "closeup", variables, settings.generationCounts.closeup, referenceImages);
 }
 
 // ── Orchestration ────────────────────────────────────────────────────────
@@ -458,7 +468,11 @@ export type CategoryGenerationResult =
 
 const GENERATORS: Record<
   ImageCategory,
-  (variables: ImagePromptVariables, referenceImages?: ReferenceImage[]) => Promise<string[]>
+  (
+    productType: ProductType,
+    variables: ImagePromptVariables,
+    referenceImages?: ReferenceImage[]
+  ) => Promise<string[]>
 > = {
   hero: generateHero,
   lifestyle: generateLifestyle,
@@ -481,8 +495,12 @@ const GENERATORS: Record<
  * `categories`, when provided, generates only that subset (letting Create
  * Product let the user pick which of Hero/Lifestyle/Closeup to generate);
  * defaults to all three when omitted.
+ *
+ * `productType` picks which of that product type's own Hero/Lifestyle/
+ * Closeup prompts to use — see lib/template-categories.ts's imageTemplateId.
  */
 export async function generateAllImages(
+  productType: ProductType,
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[],
   categories?: ImageCategory[]
@@ -490,7 +508,7 @@ export async function generateAllImages(
   const requested =
     categories && categories.length > 0 ? categories : (Object.keys(GENERATORS) as ImageCategory[]);
   const settled = await Promise.allSettled(
-    requested.map((category) => GENERATORS[category](variables, referenceImages))
+    requested.map((category) => GENERATORS[category](productType, variables, referenceImages))
   );
 
   return settled.map((result, index) => {
@@ -512,9 +530,10 @@ export async function generateAllImages(
  * example, never touches Lifestyle/Closeup.
  */
 export async function generateCategoryImages(
+  productType: ProductType,
   category: ImageCategory,
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[]
 ): Promise<string[]> {
-  return GENERATORS[category](variables, referenceImages);
+  return GENERATORS[category](productType, variables, referenceImages);
 }

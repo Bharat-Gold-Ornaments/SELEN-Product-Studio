@@ -1,0 +1,35 @@
+# SELEN — Hero Ring Prompt
+
+Premium luxury studio product photograph featuring the uploaded ring as the exact product reference. The uploaded jewellery is the sole source of truth for the product. {{referenceNote}}
+
+The ring has a {{finish}} finish, features {{stone}} stones, has dimensions of {{dimensions}}, and belongs to the {{collections}} collection. Use these details to accurately understand and present the product, but always prioritize the uploaded reference image for its exact design and appearance.
+
+Preserve the exact ring design, silhouette, proportions, dimensions, band thickness, band profile, setting height, gemstone count, gemstone size and placement, metalwork, prongs, bezels, shoulders, texture, finish, and all other defining details. Do not redesign, reinterpret, simplify, add, remove, enlarge, reduce, or modify any part of the ring.
+
+Show the ring alone as the complete product. Display it naturally and physically supported on an elegant ivory suede ring stand or refined ring holder. Position the ring upright at a subtle three-quarter angle, chosen to clearly reveal the face of the ring, gemstone setting, band profile, and craftsmanship while preserving the exact proportions of the reference product.
+
+The ring must never float, bend, warp, or appear flattened. Maintain the true circular or original band structure exactly as represented by the uploaded reference.
+
+Place the ring stand on a luxurious creamy marble surface with subtle natural veining. Use a sophisticated palette of warm ivory, champagne, cream, beige, and soft nude tones. Add delicate out-of-focus dried flowers and flowing ivory fabric for subtle depth, keeping every secondary element restrained and unobtrusive.
+
+The ring is the clear hero, occupying approximately 35–45% of the frame. Keep the complete ring fully visible with comfortable breathing room. Maintain extremely sharp focus on the {{stone}} stones, setting, prongs, metalwork, and defining craftsmanship, while the foreground and background fall into soft creamy bokeh.
+
+Use soft diffused professional studio lighting with controlled warm highlights, realistic {{finish}} metal reflections, accurate gemstone sparkle, natural shadows, and premium material textures. Avoid reflections that obscure the ring's design. 85mm macro product photography look, shallow depth of field, editorial luxury styling, refined minimal composition, photorealistic, ultra-detailed, premium boutique ecommerce photography.
+
+The final image should feel like an elegant high-end jewellery campaign: clean, sophisticated, warm, modern, and aspirational.
+
+Square 1:1 composition.
+
+## Negative Prompt
+
+Altered or redesigned ring, incorrect shape, incorrect proportions, incorrect dimensions, changed ring size appearance, altered band thickness, flattened band, oval band when originally circular, changed setting height, resized gemstones, missing or extra gemstones, incorrect stone placement, altered prongs, bezel or setting, altered shoulders, altered metalwork, incorrect {{finish}} finish, distorted, warped, bent, melted, deformed ring.
+
+Duplicate ring, extra ring, floating ring, unsupported ring, ring passing through stand, impossible geometry, incorrect perspective that changes the actual design.
+
+Hands, fingers, model, face, body, text, letters, logo, watermark, signature, brand mark, stamp, timestamp, string, thread, price tag, label, sticker, packaging, box, cluttered background, distracting props, excessive flowers, harsh shadows, dark lighting, blown highlights, excessive sparkle, unrealistic reflections, CGI, 3D render, cartoon, illustration, low detail, low resolution, blur on jewellery, noisy image, oversaturated colours, cropped or incomplete ring.
+
+## Camera & Lighting
+
+85mm macro lens, f/2.8, ISO 100, soft diffused key light from approximately 45 degrees, controlled reflector fill, gentle overhead ambient fill, shallow depth of field, creamy bokeh, highly controlled jewellery reflections, luxury editorial product photography.
+
+The complete ring should remain visible and instantly readable as a ring, with the gemstone or defining front detail prominently presented without obscuring the band structure.

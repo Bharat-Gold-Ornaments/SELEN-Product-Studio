@@ -1,0 +1,33 @@
+# SELEN — Hero Pendant Prompt
+
+Premium luxury studio product photograph featuring the uploaded pendant as the exact product reference. The uploaded jewellery is the sole source of truth for the product. {{referenceNote}}
+
+The pendant has a {{finish}} finish, features {{stone}} stones, has dimensions of {{dimensions}}, and belongs to the {{collections}} collection. Use these details to accurately understand and present the product, but always prioritize the uploaded reference image for its exact design and appearance.
+
+Preserve the exact pendant design, silhouette, proportions, dimensions, construction, gemstone count, gemstone size and placement, metalwork, bail, loops, prongs, edges, thickness, texture, finish, and all other defining details. Do not redesign, reinterpret, simplify, add, remove, enlarge, reduce, or modify any part of the jewellery.
+
+Show the pendant alone as the complete product. Do not add a chain, string, thread, cord, ribbon, price tag, label, or any attachment that is not present in the uploaded reference. Display the pendant naturally and physically supported on an elegant ivory suede pendant stand, positioned upright and facing the camera at an angle that clearly presents its complete front design. The pendant must never float.
+
+Place the stand on a luxurious creamy marble surface with subtle natural veining. Use warm ivory, champagne, cream, beige, and soft nude tones. Add delicate out-of-focus dried flowers and flowing ivory fabric in the foreground and background to create depth and a refined luxury atmosphere without distracting from the pendant.
+
+The pendant is the clear hero, occupying approximately 40–50% of the frame. Keep the complete pendant fully visible with comfortable breathing room. Maintain sharp focus on the pendant's {{stone}} stones, metalwork, bail, and defining details, while the stand, props, and background remain softly blurred with creamy bokeh.
+
+Use soft diffused professional studio lighting with gentle warm highlights, realistic {{finish}} metal reflections, accurate gemstone sparkle, natural shadows, and premium material textures. 85mm macro product photography look, shallow depth of field, creamy bokeh, editorial luxury styling, minimal centered composition, photorealistic, ultra-detailed, premium boutique ecommerce photography.
+
+The final image should feel refined, contemporary, minimal, elegant, and aspirational.
+
+Square 1:1 composition.
+
+## Negative Prompt
+
+Altered or redesigned pendant, incorrect shape, proportions, dimensions, thickness, missing or extra components, resized gemstones, missing or extra gemstones, incorrect stone placement, altered metalwork, altered bail, loop or prongs, incorrect {{finish}} finish, changed texture, distorted, warped, melted, deformed jewellery.
+
+Added chain, necklace, string, thread, cord, ribbon, price tag, label, sticker, packaging, box, floating pendant, unsupported pendant, incorrect attachment, pendant passing through the stand.
+
+Hands, model, face, body, text, letters, logo, watermark, signature, brand mark, stamp, timestamp, cluttered background, distracting props, excessive flowers, harsh shadows, dark lighting, blown highlights, excessive sparkle, unrealistic reflections, CGI, 3D render, cartoon, illustration, low detail, low resolution, blur on jewellery, noisy image, oversaturated colours, cropped or incomplete pendant.
+
+## Camera & Lighting
+
+85mm macro lens, f/2.8, ISO 100, soft diffused key light from approximately 45 degrees, subtle reflector for gentle fill, soft overhead ambient fill, shallow depth of field, creamy bokeh, realistic luxury product photography.
+
+The pendant should occupy approximately 45% of the image height. Keep the entire pendant clearly visible, with the ivory suede stand secondary and softly integrated into the composition.

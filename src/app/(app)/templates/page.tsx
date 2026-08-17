@@ -10,15 +10,24 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTemplates, useUpdateTemplate } from "@/hooks/use-templates";
-import { TEMPLATE_CATEGORIES, type TemplateCategoryId } from "@/lib/template-categories";
+import { TEMPLATE_CATEGORIES, imageTemplateId, type TemplateCategoryId } from "@/lib/template-categories";
+import { PRODUCT_TYPES } from "@/lib/constants";
 import { cn, formatDate } from "@/lib/utils";
 
-const GROUPS = ["Image prompts", "Copy prompts"] as const;
+// Image prompts are grouped one level deeper than Copy prompts — one
+// sub-section per product type — since there are now 15 of them (5 product
+// types x Hero/Lifestyle/Closeup) instead of 3 shared ones, too many to
+// scan as a single flat list.
+const copyCategories = TEMPLATE_CATEGORIES.filter((c) => c.group === "Copy prompts");
+const imageCategoriesByProductType = PRODUCT_TYPES.map((productType) => ({
+  productType,
+  templates: TEMPLATE_CATEGORIES.filter((c) => c.group === "Image prompts" && c.productType === productType.value),
+}));
 
 export default function TemplatesPage() {
   const { data: templates, isLoading, isError } = useTemplates();
   const updateTemplate = useUpdateTemplate();
-  const [activeId, setActiveId] = useState<TemplateCategoryId>("hero");
+  const [activeId, setActiveId] = useState<TemplateCategoryId>(imageTemplateId("earrings", "hero"));
   const [draft, setDraft] = useState("");
 
   const active = templates?.find((t) => t.id === activeId);
@@ -58,28 +67,54 @@ export default function TemplatesPage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_1fr]">
         <nav className="flex flex-col gap-4">
-          {GROUPS.map((group) => (
-            <div key={group} className="flex flex-col gap-1">
-              <span className="px-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {group}
-              </span>
-              {TEMPLATE_CATEGORIES.filter((category) => category.group === group).map((category) => (
-                <button
-                  key={category.id}
-                  type="button"
-                  onClick={() => setActiveId(category.id)}
-                  className={cn(
-                    "rounded-lg px-2.5 py-2 text-left text-sm font-medium transition-colors",
-                    activeId === category.id
-                      ? "bg-accent text-accent-foreground"
-                      : "text-foreground/80 hover:bg-secondary"
-                  )}
-                >
-                  {category.label}
-                </button>
-              ))}
-            </div>
-          ))}
+          <div className="flex flex-col gap-2">
+            <span className="px-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Image prompts
+            </span>
+            {imageCategoriesByProductType.map(({ productType, templates: productTemplates }) => (
+              <div key={productType.value} className="flex flex-col gap-1">
+                <span className="px-2.5 text-[11px] font-medium text-muted-foreground/70">
+                  {productType.label}
+                </span>
+                {productTemplates.map((category) => (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() => setActiveId(category.id)}
+                    className={cn(
+                      "rounded-lg px-2.5 py-2 text-left text-sm font-medium transition-colors",
+                      activeId === category.id
+                        ? "bg-accent text-accent-foreground"
+                        : "text-foreground/80 hover:bg-secondary"
+                    )}
+                  >
+                    {category.label}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="px-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Copy prompts
+            </span>
+            {copyCategories.map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                onClick={() => setActiveId(category.id)}
+                className={cn(
+                  "rounded-lg px-2.5 py-2 text-left text-sm font-medium transition-colors",
+                  activeId === category.id
+                    ? "bg-accent text-accent-foreground"
+                    : "text-foreground/80 hover:bg-secondary"
+                )}
+              >
+                {category.label}
+              </button>
+            ))}
+          </div>
         </nav>
 
         {isLoading || !active ? (

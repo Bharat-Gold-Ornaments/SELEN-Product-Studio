@@ -3,12 +3,12 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { Camera, FolderOpen, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { Camera, FolderOpen, Loader2, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { badgeVariants } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -18,10 +18,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PRODUCT_TYPES, POOL_PHOTO_ANGLES } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import {
   usePoolPhotos,
   useUploadPoolPhotos,
   useTagPoolPhoto,
+  useMarkPoolPhotoUnused,
   useDeletePoolPhoto,
   type PoolPhotoAngle,
 } from "@/hooks/use-pool-photos";
@@ -47,12 +49,20 @@ export function UploadsClient() {
   const { data: photos, isLoading, isError, error, refetch, isFetching } = usePoolPhotos();
   const upload = useUploadPoolPhotos();
   const tag = useTagPoolPhoto();
+  const markUnused = useMarkPoolPhotoUnused();
   const deletePhoto = useDeletePoolPhoto();
 
   function handleDelete(fileId: string, name: string) {
     if (!window.confirm(`Delete "${name}" from the pool? This can't be undone.`)) return;
     deletePhoto.mutate(fileId, {
       onError: (err) => toast.error(err instanceof Error ? err.message : "Couldn't delete this photo."),
+    });
+  }
+
+  function handleMarkUnused(fileId: string) {
+    markUnused.mutate(fileId, {
+      onSuccess: () => toast.success("Photo is usable again"),
+      onError: (err) => toast.error(err instanceof Error ? err.message : "Couldn't update this photo."),
     });
   }
 
@@ -198,9 +208,19 @@ export function UploadsClient() {
                 <div className="relative aspect-square overflow-hidden rounded-lg bg-muted">
                   <Image src={photo.publicUrl} alt={photo.name} fill unoptimized className="object-cover" />
                   {photo.used ? (
-                    <Badge variant="success" className="absolute right-1.5 top-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleMarkUnused(photo.fileId)}
+                      disabled={markUnused.isPending}
+                      title="Make usable again"
+                      className={cn(
+                        badgeVariants({ variant: "success" }),
+                        "absolute right-1.5 top-1.5 transition-opacity hover:opacity-80 disabled:pointer-events-none disabled:opacity-50"
+                      )}
+                    >
+                      <RotateCcw className="h-3 w-3" />
                       Used
-                    </Badge>
+                    </button>
                   ) : null}
                   <button
                     type="button"

@@ -1,0 +1,49 @@
+# SELEN — Lifestyle Necklace Prompt
+
+Create a premium luxury jewellery lifestyle campaign photograph using the uploaded necklace as the exact product reference. The uploaded jewellery is the sole source of truth for the product. {{referenceNote}}
+
+The necklace has a {{finish}} finish, features {{stone}} stones, has dimensions of {{dimensions}}, and belongs to the {{collections}} collection. Use these details to accurately understand and present the product, but always prioritize the uploaded reference image for the exact design and appearance.
+
+Preserve the exact necklace design, silhouette, proportions, dimensions, chain type, chain thickness, length appearance, links, pendant elements, gemstone count, gemstone size and placement, metalwork, clasps, hooks, loops, connectors, texture, finish, and every other defining detail. Do not redesign, reinterpret, simplify, add, remove, enlarge, reduce, shorten, lengthen, or modify any part of the necklace.
+
+A beautiful young woman in her mid-20s wears the exact uploaded necklace. She has naturally refined features, glowing realistic skin, soft dewy makeup, and long dark hair styled behind her shoulders. She wears an elegant ivory, champagne, cream, or soft nude satin outfit with a clean neckline chosen specifically to display the complete necklace.
+
+The uploaded necklace is the only jewellery worn by the model.
+
+Do not add a second necklace, layered necklace, choker, pendant, extra chain, earrings, ear studs, ear cuffs, rings, bracelets, bangles, watches, anklets, body jewellery, or any other jewellery or accessory.
+
+Capture a close editorial portrait cropped approximately from just below the lips to the upper waist, adjusted only as necessary to keep the complete visible necklace naturally within the frame. The necklace must be the unmistakable hero product and the sharpest element in the image.
+
+The complete primary necklace design must be visible and clearly readable. Do not crop the main necklace structure, pendant elements, or defining chain design. Do not make the necklace small or visually lost within a wide portrait.
+
+Position the model naturally so the necklace follows its original construction and drapes realistically around the neck and chest. Preserve the exact chain structure, thickness, length appearance, links, pendant placement, and all defining details. Do not add, remove, replace, or invent chains or necklace components.
+
+Keep the neckline and collarbone clean and fully visible. The hair must remain behind the shoulders and must not cover any part of the necklace. No hands should touch, hold, lift, or obscure the necklace.
+
+The necklace should occupy approximately 30–45% of the visual composition, depending on its original length and structure. Maintain sharp focus on the {{stone}} stones, chain texture, pendant elements, metalwork, and defining craftsmanship while allowing the model's face and background to remain slightly softer.
+
+Use an 85mm luxury portrait photography look with sufficient depth of field to keep all essential necklace details sharp and readable while creating soft separation from the background. Preserve realistic skin texture and natural anatomy.
+
+Soft warm golden-hour inspired lighting enters from the side, producing gentle champagne highlights, realistic {{finish}} metal reflections, accurate gemstone sparkle, and soft natural shadows. The background consists of softly blurred ivory flowers, delicate dried flowers, flowing champagne satin fabric, creamy beige tones, and luxurious creamy bokeh.
+
+Luxury editorial fashion photography, premium boutique jewellery campaign, product-first composition, refined feminine styling, macro beauty inspired photography, cinematic soft luxury lighting, photorealistic, ultra-detailed, elegant contemporary jewellery advertisement.
+
+Square 1:1 composition.
+
+## Negative Prompt
+
+Altered or redesigned necklace, incorrect shape, proportions, dimensions, altered chain length, altered chain thickness, incorrect links, missing or extra links, altered pendant elements, missing or extra components, gemstone count, gemstone size, gemstone placement, altered metalwork, clasp, hook, loop or connector, incorrect {{finish}} finish, distorted, tangled, knotted, warped, stretched, melted, deformed jewellery.
+
+More than one necklace, layered necklaces, duplicate necklace, second necklace, choker, additional pendant, extra chain.
+
+No earrings, ear studs, ear cuffs, rings, bracelets, bangles, watches, anklets, body jewellery, or any other jewellery or accessory anywhere on the model.
+
+No hair covering the necklace, no hands touching, holding, lifting, or obscuring the necklace, no full body, no zoomed-out composition, no necklace appearing small in the frame, no cropped primary necklace design, no incomplete visible jewellery.
+
+No text, letters, logo, watermark, signature, brand mark, CGI, 3D render, cartoon, illustration, distorted anatomy, unrealistic reflections, excessive sparkle, harsh lighting, excessive makeup, plastic skin, low detail, low resolution, blur on essential necklace details, noisy image, cluttered background.
+
+## Camera & Composition
+
+85mm luxury portrait lens look, approximately f/2.8 to f/4 depending on necklace structure, ISO 100, soft diffused side lighting, subtle fill, controlled depth of field, creamy bokeh, realistic luxury jewellery photography.
+
+There must be exactly one necklace in the entire image: the uploaded necklace. It is the only jewellery worn by the model and must remain the immediate visual focal point.

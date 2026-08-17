@@ -96,7 +96,7 @@ export async function generateTitle(variables: ImagePromptVariables): Promise<st
 export async function generateDescription(variables: CopyPromptVariables): Promise<string> {
   const template = await readTemplate("description");
   const prompt = renderTemplate(template.content, { ...variables });
-  const text = await complete(MODEL_PRIMARY, prompt, 400);
+  const text = await complete(MODEL_PRIMARY, prompt, 40);
   return stripWrappingQuotes(text);
 }
 

@@ -1,0 +1,43 @@
+# SELEN — Lifestyle Pendant Prompt
+
+Create a premium luxury jewellery lifestyle campaign photograph using the uploaded pendant as the exact product reference. The uploaded jewellery is the sole source of truth for the product. {{referenceNote}}
+
+The pendant has a {{finish}} finish, features {{stone}} stones, has dimensions of {{dimensions}}, and belongs to the {{collections}} collection. Use these details to accurately understand and present the product, but always prioritize the uploaded reference image for the exact design and appearance.
+
+Preserve the exact pendant design, silhouette, proportions, dimensions, construction, gemstone count, gemstone size and placement, metalwork, bail, loops, chain structure, chain thickness, links, prongs, texture, finish, and every other defining detail. Do not redesign, reinterpret, simplify, add, remove, enlarge, reduce, shorten, lengthen, or modify any part of the jewellery.
+
+A beautiful young woman in her mid-20s wears the exact uploaded pendant and its exact chain, where applicable. She has naturally refined features, glowing realistic skin, soft dewy makeup, and long dark hair styled behind her shoulders. She wears an elegant ivory, champagne, cream, or soft nude satin outfit with a clean graceful neckline specifically chosen to showcase the pendant.
+
+The uploaded pendant is the only jewellery worn by the model. Do not show earrings, ear studs, ear cuffs, necklaces in addition to the uploaded pendant, rings, bracelets, bangles, watches, anklets, body jewellery, or any other jewellery or accessory.
+
+Capture a tight editorial portrait cropped approximately from just below the lips to the upper waist. The pendant, chain, collarbone, and neckline are the main visual composition. The pendant must be the unmistakable hero product and the sharpest element in the image.
+
+Position the model slightly off-center if needed, but ensure the pendant remains centrally prominent and occupies approximately 30–40% of the visual composition. The complete pendant must remain fully visible and must not be cropped. Keep sufficient breathing room around the jewellery.
+
+The chain must follow its exact original construction and drape naturally around the neck and chest. Do not add another chain. Do not alter the chain length, thickness, link structure, pendant position, or attachment. Keep the complete visible chain structure natural and believable.
+
+The hair must remain behind the shoulders and must not cover the pendant, chain, neckline, or any defining product detail. No hands should touch or hold the pendant.
+
+Focus precisely on the pendant using an 85mm macro portrait photography look. Keep the pendant, {{stone}} stones, metalwork, bail, and defining craftsmanship in tack-sharp focus while allowing the model's face and background to remain slightly softer. Preserve realistic skin texture and natural anatomy.
+
+Soft warm golden-hour inspired lighting enters from the side, creating gentle champagne highlights, realistic {{finish}} metal reflections, accurate gemstone sparkle, and soft natural shadows. The background consists of softly blurred ivory flowers, delicate dried flowers, flowing champagne satin fabric, creamy beige tones, and luxurious creamy bokeh.
+
+Luxury editorial fashion photography, premium boutique jewellery campaign, product-first composition, refined feminine styling, macro beauty photography, cinematic soft luxury lighting, photorealistic, ultra-detailed, elegant contemporary jewellery advertisement.
+
+Square 1:1 composition.
+
+## Negative Prompt
+
+Altered or redesigned pendant, incorrect shape, proportions, dimensions, gemstone count, gemstone size, gemstone placement, altered metalwork, altered bail, loops, prongs, chain, links, chain thickness, chain length, incorrect {{finish}} finish, different pendant, duplicate pendant, extra pendant, oversized jewellery, missing stones, extra stones, distorted, warped, melted, deformed jewellery.
+
+Additional necklace, choker, layered necklace, extra chain, earrings, ear studs, ear cuffs, rings, bracelets, bangles, watches, anklets, body jewellery, or any other jewellery or accessory.
+
+No hair covering the pendant or chain, no hands touching or holding the pendant, no full body, no zoomed-out composition, no pendant appearing small in the frame, no cropped pendant, no incomplete chain where essential to the design.
+
+No text, letters, logo, watermark, signature, brand mark, CGI, 3D render, cartoon, illustration, distorted anatomy, unrealistic reflections, excessive sparkle, harsh lighting, excessive makeup, plastic skin, low detail, low resolution, blur on pendant, noisy image, cluttered background.
+
+## Camera & Composition
+
+85mm macro portrait lens look, approximately f/2.8, ISO 100, soft diffused side lighting, subtle fill, shallow depth of field, creamy bokeh, realistic luxury beauty photography.
+
+The pendant is the only jewellery worn by the model. Keep the pendant in tack-sharp focus and make it the immediate visual focal point.

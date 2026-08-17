@@ -1,0 +1,45 @@
+# SELEN — Close-up Earring Prompt
+
+Create a premium luxury jewellery close-up photograph using the uploaded earrings as the exact product reference. The uploaded jewellery is the sole source of truth for the product. {{referenceNote}}
+
+The earrings have a {{finish}} finish, feature {{stone}} stones, have dimensions of {{dimensions}}, and belong to the {{collections}} collection. Use these details to accurately understand the product, but always prioritize the uploaded reference image for its exact design and appearance.
+
+Preserve the exact earring design, silhouette, proportions, dimensions, thickness, curvature, gemstone count, gemstone size and placement, pearl size where applicable, metalwork, finish, texture, prongs, loops, hooks, posts, backs, butterfly backing, clasps, and every other construction detail. Do not redesign, reinterpret, simplify, resize, add, remove, or modify any part of the earrings.
+
+Display both uploaded earrings naturally arranged as one matching pair. The primary earring is the main subject.
+
+Place the primary earring naturally on a polished creamy marble surface, rotated approximately 35–45 degrees from a straight front-facing position. Position it specifically to reveal the decorative front, side profile, depth, thickness, gemstone settings, metal frame, curvature, and fastening construction simultaneously.
+
+Where applicable, allow the post, hook, or closure to remain naturally visible. If the earring uses a post and butterfly backing, show the post extending naturally behind the earring with the butterfly backing correctly attached. Do not hide, remove, relocate, or invent the fastening mechanism.
+
+Position the second matching earring slightly behind or beside the primary earring at a complementary natural angle. Keep the complete pair visible, but use shallow depth of field so the primary earring is tack-sharp and the secondary earring provides subtle contextual depth without competing for attention.
+
+The earrings should be physically resting on the surface with realistic contact shadows. Never float or appear suspended.
+
+Use a polished creamy marble surface with extremely subtle natural veining. Maintain a minimal warm ivory, champagne, cream, and soft beige environment. Avoid decorative props, flowers, ribbons, excessive fabric, crystals, packaging, or clutter.
+
+The complete matching pair should occupy approximately 60–70% of the frame. The primary earring should occupy the visual foreground and clearly reveal its craftsmanship and construction.
+
+Use soft diffused professional studio lighting from approximately 45 degrees with subtle controlled rim lighting to reveal {{finish}} metal contours, gemstone depth, pearl luster where applicable, surface texture, thickness, and realistic construction. Maintain accurate reflections without harsh glare or blown highlights.
+
+Use a 100mm macro product photography look with sufficient depth of field to keep the complete primary earring sharply detailed while allowing the secondary earring to fall into a gentle natural blur. Luxury boutique jewellery macro photography, editorial ecommerce detail shot, photorealistic, ultra-detailed, realistic materials, premium craftsmanship, clean minimalist composition.
+
+Square 1:1 composition.
+
+## Negative Prompt
+
+Altered or redesigned earrings, incorrect shape, proportions, dimensions, thickness, curvature, gemstone count, gemstone size, gemstone placement, pearl size, altered metal frame, altered prongs, loops, hooks, posts, backs, butterfly backing, clasps, incorrect {{finish}} finish, missing or extra components, missing or extra gemstones, duplicate pair, mismatched earrings, distorted, warped, melted, deformed jewellery.
+
+Missing post, incorrect post position, missing butterfly backing where applicable, unattached backing, incorrectly attached closure, hidden fastening mechanism when naturally visible, invented fastening mechanism.
+
+Floating jewellery, suspended jewellery, earrings standing unnaturally upright, unrealistic levitation, incorrect contact shadows.
+
+Model, ear, face, body, hands, worn jewellery, necklace, pendant, ring, bracelet, bangle, watch, text, logo, watermark, signature, price tag, label, packaging, jewellery box, excessive props, flowers, ribbons, fabric covering jewellery, cluttered background.
+
+CGI, 3D render, cartoon, illustration, unrealistic marble, harsh reflections, blown highlights, dark shadows, excessive sparkle, unrealistic materials, low detail, low resolution, blur on primary earring, cropped jewellery, incomplete pair.
+
+## Camera & Lighting
+
+100mm macro lens look, approximately f/8, ISO 100, tripod-style precision product composition, soft diffused key light from 45 degrees, subtle rim light to reveal depth and contours, controlled reflections, sufficient depth of field for detailed primary-product sharpness.
+
+The primary earring must clearly communicate front design, side profile, depth, thickness, stone setting, and fastening construction in one premium close-up image.

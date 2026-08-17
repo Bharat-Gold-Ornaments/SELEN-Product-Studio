@@ -336,6 +336,30 @@ export async function ensureProductFolders(
   return { categoryFolderId, productFolderId, originalsFolderId, generatedFolderId };
 }
 
+/**
+ * Deletes a product's whole Drive folder — `originals/`, `generated/`, and
+ * every image inside both — in one call. Looks the folder up with the same
+ * read-only `findChild` used internally by `ensureProductFolders`, but
+ * deliberately never calls `ensureProductFolders` itself: that function
+ * *creates* whatever's missing, which is exactly wrong for a delete path.
+ * No-ops (doesn't throw) if the category or product folder was never
+ * created — e.g. a product whose generation failed before any Drive folder
+ * existed — so callers can call this unconditionally.
+ */
+export async function deleteProductFolder(category: ProductType, productId: string): Promise<void> {
+  const categoryFolderId = await findChild(
+    rootFolderId(),
+    CATEGORY_FOLDER_NAMES[category],
+    `mimeType = '${FOLDER_MIME_TYPE}'`
+  );
+  if (!categoryFolderId) return;
+
+  const productFolderId = await findChild(categoryFolderId, productId, `mimeType = '${FOLDER_MIME_TYPE}'`);
+  if (!productFolderId) return;
+
+  await deleteItem(productFolderId);
+}
+
 /** Writes (or overwrites) `metadata.json` at the root of a product's folder. */
 export async function writeMetadataJson(
   productFolderId: string,
@@ -487,6 +511,21 @@ export async function markPoolPhotoUsed(fileId: string, productId: string): Prom
   await drive.files.update({
     fileId,
     requestBody: { appProperties: appPropertiesFrom({ used: true, usedByProductId: productId }) },
+    fields: "id",
+    supportsAllDrives: true,
+  });
+}
+
+/**
+ * Inverse of markPoolPhotoUsed — clears a photo's "used" tag so it shows up
+ * as pickable again. For when a product it was used on gets deleted/redone,
+ * or the pick was a mistake and the photo is still good for a future product.
+ */
+export async function markPoolPhotoUnused(fileId: string): Promise<void> {
+  const drive = getDriveClient();
+  await drive.files.update({
+    fileId,
+    requestBody: { appProperties: appPropertiesFrom({ used: false, usedByProductId: "" }) },
     fields: "id",
     supportsAllDrives: true,
   });

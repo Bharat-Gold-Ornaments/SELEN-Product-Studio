@@ -107,6 +107,28 @@ export function useTagPoolPhoto() {
   });
 }
 
+/** Clears a pool photo's "used" flag so it shows up as pickable again — see the PATCH route's doc comment. */
+export function useMarkPoolPhotoUnused() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (fileId: string) => {
+      const res = await fetch(`/api/uploads/${fileId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ used: false }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "Couldn't update this photo.");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pool-photos"] });
+    },
+  });
+}
+
 export function useDeletePoolPhoto() {
   const queryClient = useQueryClient();
 

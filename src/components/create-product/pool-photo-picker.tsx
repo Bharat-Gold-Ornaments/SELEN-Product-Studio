@@ -28,7 +28,7 @@ export function PoolPhotoPicker({ open, onOpenChange, angle, productType, onPick
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-5xl overflow-y-auto rounded-2xl border border-border bg-card p-4 shadow-xl">
+      <DialogContent className="max-h-[85vh] w-[calc(100vw-2rem)] max-w-5xl overflow-y-auto rounded-2xl border border-border bg-card p-4 shadow-xl">
         <DialogTitle>Choose a {angle} photo from Uploads</DialogTitle>
 
         {isLoading ? (

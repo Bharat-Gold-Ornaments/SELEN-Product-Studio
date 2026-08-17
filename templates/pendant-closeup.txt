@@ -1,0 +1,45 @@
+# SELEN — Close-up Pendant Prompt
+
+Create a premium luxury jewellery close-up photograph using the uploaded pendant as the exact product reference. The uploaded jewellery is the sole source of truth for the product. {{referenceNote}}
+
+The pendant has a {{finish}} finish, features {{stone}} stones, has dimensions of {{dimensions}}, and belongs to the {{collections}} collection. Use these details to accurately understand the product, but always prioritize the uploaded reference image for its exact design and appearance.
+
+Preserve the exact pendant design, silhouette, proportions, dimensions, thickness, gemstone count, gemstone size and placement, metalwork, finish, texture, edges, bail, loops, attachment points, prongs, settings, back construction, and every other defining detail. Do not redesign, reinterpret, simplify, resize, add, remove, or modify any part of the pendant.
+
+Show exactly one pendant: the uploaded pendant. Do not duplicate it.
+
+Display the pendant naturally resting on a polished creamy marble surface at a carefully chosen three-quarter angle of approximately 30–45 degrees. The composition should reveal the front design while also clearly communicating the pendant's depth, thickness, edge profile, gemstone settings, metalwork, bail, and craftsmanship.
+
+If a chain is included in the uploaded reference as an integral part of the product, preserve that exact chain. Arrange only the minimum visible portion necessary to naturally show how the pendant connects to it. Do not invent, replace, lengthen, shorten, or add another chain.
+
+If the uploaded product is pendant-only without a chain, do not add a chain, string, cord, ribbon, or any attachment.
+
+The pendant must be physically resting on the marble with realistic natural contact shadows. Never float or appear suspended.
+
+The pendant should occupy approximately 55–65% of the frame while remaining completely visible with comfortable breathing room. Keep the pendant's defining details in tack-sharp focus.
+
+Use a minimal polished creamy marble surface with extremely subtle natural veining. Maintain SELEN's warm ivory, champagne, cream, and soft beige palette. Avoid flowers, ribbons, excessive fabric, crystals, decorative props, packaging, or clutter.
+
+Use soft diffused professional studio lighting with controlled highlights to reveal realistic {{finish}} metal reflections, gemstone depth, precise setting details, surface texture, edges, thickness, and craftsmanship. Avoid glare that obscures the front design or gemstones.
+
+Use a 100mm macro product photography look with sufficient depth of field to keep the complete pendant and its critical construction details sharp. Luxury boutique jewellery macro photography, premium ecommerce detail shot, editorial minimalism, photorealistic, ultra-detailed, realistic materials and craftsmanship.
+
+Square 1:1 composition.
+
+## Negative Prompt
+
+More than one pendant, duplicate pendant, altered or redesigned pendant, incorrect shape, proportions, dimensions, thickness, gemstone count, gemstone size, gemstone placement, altered metalwork, altered bail, loops, attachment points, prongs, settings, back construction, incorrect {{finish}} finish, missing or extra components, distorted, warped, melted, deformed jewellery.
+
+Added chain when not present in the uploaded product, incorrect chain, extra chain, altered chain links, altered chain thickness, altered attachment.
+
+Floating pendant, suspended pendant, impossible angle, unrealistic contact shadows.
+
+Model, neck, ear, face, body, hands, worn jewellery, earrings, necklace, ring, bracelet, bangle, watch, text, logo, watermark, signature, price tag, label, packaging, jewellery box, excessive props, flowers, ribbons, fabric covering the pendant, cluttered background.
+
+CGI, 3D render, cartoon, illustration, unrealistic marble, harsh reflections, blown highlights, dark shadows, excessive sparkle, low detail, low resolution, blur on pendant, cropped or incomplete pendant.
+
+## Camera & Lighting
+
+100mm macro lens look, approximately f/8, ISO 100, precision product composition, soft diffused key light from 45 degrees, subtle rim light for depth, controlled reflections, sufficient depth of field to preserve sharp detail across the complete pendant.
+
+The pendant must clearly communicate its exact front design, side profile, thickness, edge construction, stone settings, and craftsmanship.

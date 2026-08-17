@@ -36,6 +36,29 @@ function tabName(): string {
   return optionalEnv("GOOGLE_SHEETS_TAB_NAME", "Products");
 }
 
+// batchUpdate's deleteDimension request needs the tab's numeric sheetId
+// (Sheets' own internal id for that tab, distinct from spreadsheetId and
+// from its name) — nothing else in this file needs it, since values.get/
+// .update/.append all address ranges by tab name instead. Cached per server
+// instance; a tab is never renamed or recreated mid-session.
+let cachedSheetId: number | null = null;
+
+async function getSheetId(): Promise<number> {
+  if (cachedSheetId !== null) return cachedSheetId;
+  const sheets = getSheetsClient();
+
+  const res = await sheets.spreadsheets.get({
+    spreadsheetId: spreadsheetId(),
+    fields: "sheets.properties(sheetId,title)",
+  });
+  const match = res.data.sheets?.find((s) => s.properties?.title === tabName());
+  if (!match?.properties?.sheetId && match?.properties?.sheetId !== 0) {
+    throw new Error(`Couldn't find a tab named "${tabName()}" in the configured spreadsheet.`);
+  }
+  cachedSheetId = match.properties.sheetId;
+  return cachedSheetId;
+}
+
 /**
  * Proof the service account credentials work AND the configured spreadsheet
  * is actually shared with them — a cheap metadata-only read (just the
@@ -319,5 +342,44 @@ export async function updateProductRow(productId: string, patch: Partial<Product
     range: rowRange(existing.rowNumber),
     valueInputOption: "USER_ENTERED",
     requestBody: { values: [recordToRow(merged)] },
+  });
+}
+
+/**
+ * Deletes a product's row entirely. Unlike updateProductRow, this can't just
+ * address the row by range — Sheets has no "delete this range" operation
+ * that shifts everything below it up, only `deleteDimension`, which removes
+ * a whole row index from the tab. Throws if no row with that productId
+ * exists; callers should check with findProduct first (the DELETE route
+ * already needs to, to read status/category before deleting).
+ */
+export async function deleteProductRow(productId: string): Promise<void> {
+  const existing = await findProduct(productId);
+  if (!existing) {
+    throw new Error(`No Google Sheet row found for product ${productId} — can't delete a row that doesn't exist.`);
+  }
+
+  const sheets = getSheetsClient();
+  const sheetId = await getSheetId();
+  // rowNumber is 1-based and includes the header row; deleteDimension's
+  // startIndex/endIndex are 0-based, so rowNumber (1-based) is already the
+  // correct 0-based startIndex — e.g. row 2 (the first data row) has
+  // 0-based sheet index 1.
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: spreadsheetId(),
+    requestBody: {
+      requests: [
+        {
+          deleteDimension: {
+            range: {
+              sheetId,
+              dimension: "ROWS",
+              startIndex: existing.rowNumber - 1,
+              endIndex: existing.rowNumber,
+            },
+          },
+        },
+      ],
+    },
   });
 }

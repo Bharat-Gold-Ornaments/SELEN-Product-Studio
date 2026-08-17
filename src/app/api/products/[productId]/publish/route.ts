@@ -13,10 +13,11 @@ const bodySchema = z.object({
   inventory: z.number().int().nonnegative("Inventory can't be negative."),
 });
 
-// Wraps each paragraph (blank-line-separated, matching how templates/
-// description.txt asks Claude to write "2 to 3 short paragraphs") in its
-// own <p> — descriptionHtml is, as the name says, HTML, but the copy
-// service (services/anthropic-copy.ts) only ever produces plain text.
+// Wraps each paragraph (blank-line-separated) in its own <p> — templates/
+// description.txt now asks Claude for a single short line, but this still
+// handles a multi-paragraph response gracefully if that ever changes.
+// descriptionHtml is, as the name says, HTML, but the copy service
+// (services/anthropic-copy.ts) only ever produces plain text.
 // Escapes the handful of characters that would otherwise be interpreted as
 // markup if a paragraph happened to contain a literal "<" or "&".
 function descriptionToHtml(text: string): string {

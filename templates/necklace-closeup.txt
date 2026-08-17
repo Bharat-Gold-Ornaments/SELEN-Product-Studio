@@ -1,0 +1,47 @@
+# SELEN — Close-up Necklace Prompt
+
+Create a premium luxury jewellery close-up photograph using the uploaded necklace as the exact product reference. The uploaded jewellery is the sole source of truth for the product. {{referenceNote}}
+
+The necklace has a {{finish}} finish, features {{stone}} stones, has dimensions of {{dimensions}}, and belongs to the {{collections}} collection. Use these details to accurately understand the product, but always prioritize the uploaded reference image for its exact design and appearance.
+
+Preserve the exact necklace design, silhouette, proportions, dimensions, chain type, chain thickness, links, pendant elements, gemstone count, gemstone size and placement, metalwork, finish, texture, clasps, hooks, loops, connectors, attachment points, and every other construction detail. Do not redesign, reinterpret, simplify, resize, add, remove, shorten, lengthen, or modify any part of the necklace.
+
+Show exactly one necklace: the uploaded necklace. Do not duplicate or layer the necklace.
+
+Create a macro detail composition focused on the necklace's primary design area and most important craftsmanship details. The image does not need to show the entire necklace if its full length would prevent meaningful close-up detail, but every visible portion must accurately represent the uploaded product.
+
+Arrange the necklace naturally on a polished creamy marble surface, following its authentic chain construction and natural curvature. The chain must never be tangled, knotted, stretched, or arranged in an impossible shape.
+
+Position the primary design element at a subtle three-quarter angle, approximately 20–40 degrees from straight-on where appropriate, so the composition reveals gemstone depth, metal thickness, chain links, connector construction, pendant depth where applicable, and fine craftsmanship.
+
+Keep the primary design and a meaningful section of the exact original chain in tack-sharp focus. Allow more distant sections of the same necklace to transition naturally into soft blur.
+
+Do not add another chain, second necklace, pendant, clasp, extension, or connector. Preserve the exact product construction.
+
+The main jewellery detail should occupy approximately 60–70% of the frame. Ensure the composition remains clearly readable as the uploaded necklace and does not crop through the primary defining design.
+
+Use a minimal polished creamy marble surface with extremely subtle natural veining. Maintain SELEN's warm ivory, champagne, cream, and soft beige palette. Avoid flowers, ribbons, excessive fabric, crystals, decorative props, packaging, or clutter.
+
+Use soft diffused professional studio lighting with controlled highlights to reveal realistic {{finish}} metal reflections, gemstone depth, chain texture, individual link construction, and premium surface detail. Avoid harsh glare or reflections that obscure important product details.
+
+Use a 100mm macro product photography look with controlled shallow depth of field and focus precisely on the primary design. Luxury boutique jewellery macro photography, premium ecommerce detail shot, editorial minimalism, photorealistic, ultra-detailed, realistic materials and craftsmanship.
+
+Square 1:1 composition.
+
+## Negative Prompt
+
+More than one necklace, duplicate necklace, layered necklaces, second chain, extra chain, altered or redesigned necklace, incorrect shape, proportions, dimensions, altered chain type, chain thickness, links, pendant elements, gemstone count, gemstone size, gemstone placement, altered clasp, hook, loop, connector, attachment point, incorrect {{finish}} finish, missing or extra components, distorted, tangled, knotted, stretched, warped, melted, deformed jewellery.
+
+Invented pendant, additional pendant, extra chain extension, incorrect connector.
+
+Floating necklace, suspended chain, impossible chain curvature, unrealistic contact shadows.
+
+Model, neck, ear, face, body, hands, worn jewellery, earrings, ring, bracelet, bangle, watch, text, logo, watermark, signature, price tag, label, packaging, jewellery box, excessive props, flowers, ribbons, fabric covering jewellery, cluttered background.
+
+CGI, 3D render, cartoon, illustration, unrealistic marble, harsh reflections, blown highlights, dark shadows, excessive sparkle, low detail, low resolution, blur on primary jewellery detail, cropped defining design.
+
+## Camera & Lighting
+
+100mm macro lens look, approximately f/5.6 to f/8, ISO 100, precision product composition, soft diffused key light from 45 degrees, subtle rim light to reveal chain and metal depth, controlled reflections, selective focus on the primary design.
+
+Exactly one necklace must appear. The image should reveal close construction details while remaining unmistakably faithful to the uploaded necklace.

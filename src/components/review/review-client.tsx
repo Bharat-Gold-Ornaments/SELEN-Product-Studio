@@ -119,6 +119,7 @@ export function ReviewClient({ productId }: { productId: string }) {
       const result = await regenerate.mutateAsync({
         productId,
         category,
+        productType: session.productType,
         variables: session.variables,
         referencePhotos,
         poolPhotoIds: session.poolPhotoIds,

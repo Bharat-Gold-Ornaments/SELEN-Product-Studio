@@ -1,0 +1,35 @@
+# SELEN — Hero Bracelet Prompt
+
+Premium luxury studio product photograph featuring the uploaded bracelet as the exact product reference. The uploaded jewellery is the sole source of truth for the product. {{referenceNote}}
+
+The bracelet has a {{finish}} finish, features {{stone}} stones, has dimensions of {{dimensions}}, and belongs to the {{collections}} collection. Use these details to accurately understand and present the product, but always prioritize the uploaded reference image for its exact design and appearance.
+
+Preserve the exact bracelet design, silhouette, proportions, dimensions, circumference appearance, width, thickness, chain structure, links, gemstone count, gemstone size and placement, charms, clasps, connectors, metalwork, texture, finish, and all other defining details. Do not redesign, reinterpret, simplify, add, remove, enlarge, reduce, or modify any part of the bracelet.
+
+Show the bracelet alone as the complete product. Display it naturally and physically supported on an elegant ivory suede cylindrical bracelet stand, curved display, or refined jewellery holder appropriate to the exact bracelet construction. For a chain bracelet, allow the chain to follow a natural, realistic curve. For a rigid bangle or cuff, preserve its exact original shape and structure.
+
+Do not force the bracelet into an unnatural position. Do not stretch, compress, widen, flatten, or alter its original construction. Ensure the primary design, gemstones, clasp details where relevant, and defining metalwork are clearly visible.
+
+Place the display on a luxurious creamy marble surface with subtle natural veining. Use warm ivory, champagne, cream, beige, and soft nude tones. Add delicate out-of-focus dried flowers and flowing ivory fabric for subtle depth and a refined editorial atmosphere without distracting from the bracelet.
+
+The bracelet is the clear hero, occupying approximately 40–50% of the frame. Keep the complete bracelet fully visible with comfortable breathing room. Maintain sharp focus on its {{stone}} stones, primary design, links, metalwork, and defining craftsmanship, while the display, foreground, props, and background transition softly into creamy bokeh.
+
+Use soft diffused professional studio lighting with gentle warm highlights, realistic {{finish}} metal reflections, accurate gemstone sparkle, natural shadows, and premium material textures. 85mm macro product photography look, shallow to moderate depth of field, creamy bokeh, editorial luxury styling, minimal balanced composition, photorealistic, ultra-detailed, premium boutique ecommerce photography.
+
+The final image should feel sophisticated, clean, contemporary, warm, and aspirational.
+
+Square 1:1 composition.
+
+## Negative Prompt
+
+Altered or redesigned bracelet, incorrect shape, proportions, dimensions, circumference, width or thickness, changed chain structure, missing or extra links, resized gemstones, missing or extra gemstones, incorrect stone placement, altered charms, altered clasp, altered connector, altered metalwork, incorrect {{finish}} finish, distorted, stretched, compressed, flattened, warped, bent, melted, deformed bracelet.
+
+Duplicate bracelet, extra jewellery, floating bracelet, unsupported bracelet, bracelet passing through the stand, impossible chain curve, tangled chain, knotted bracelet, incomplete or cropped bracelet.
+
+Hands, wrist, arm, model, face, body, text, letters, logo, watermark, signature, brand mark, stamp, timestamp, string, thread, price tag, label, sticker, packaging, box, cluttered background, distracting props, excessive flowers, harsh shadows, dark lighting, blown highlights, excessive sparkle, unrealistic reflections, CGI, 3D render, cartoon, illustration, low detail, low resolution, blur on jewellery, noisy image, oversaturated colours.
+
+## Camera & Lighting
+
+85mm macro lens, f/2.8 to f/4, ISO 100, soft diffused key light from approximately 45 degrees, subtle reflector fill, gentle overhead ambient light, controlled depth of field, creamy bokeh, realistic premium jewellery reflections, editorial luxury product photography.
+
+Keep the entire bracelet clearly visible and naturally supported, with its defining design immediately readable and the ivory suede display secondary to the product.

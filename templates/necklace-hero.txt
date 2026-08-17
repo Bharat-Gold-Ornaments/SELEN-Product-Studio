@@ -1,0 +1,35 @@
+# SELEN — Hero Necklace Prompt
+
+Premium luxury studio product photograph featuring the uploaded necklace as the exact product reference. The uploaded jewellery is the sole source of truth for the product. {{referenceNote}}
+
+The necklace has a {{finish}} finish, features {{stone}} stones, has dimensions of {{dimensions}}, and belongs to the {{collections}} collection. Use these details to accurately understand and present the product, but always prioritize the uploaded reference image for its exact design and appearance.
+
+Preserve the exact necklace design, silhouette, proportions, dimensions, chain type, chain thickness, length appearance, links, pendant elements, gemstone count, gemstone size and placement, metalwork, clasps, hooks, loops, connectors, texture, finish, and all other defining details. Do not redesign, reinterpret, simplify, add, remove, enlarge, reduce, shorten, lengthen, or modify any part of the necklace.
+
+Show the necklace alone as the complete product. Display the full necklace naturally and physically supported on an elegant ivory suede bust stand or necklace display appropriate to its structure. Arrange the necklace exactly according to its natural construction, with the chain draping realistically and symmetrically where applicable. Ensure all visible pendant elements and defining details face naturally toward the camera.
+
+Do not crop the necklace. The complete product must be visible, including the primary design and all essential chain elements. Do not add, remove, replace, or invent any chain, extension, clasp, pendant, or connector.
+
+Place the necklace display on a luxurious creamy marble surface with subtle natural veining. Use a sophisticated palette of warm ivory, champagne, cream, beige, and soft nude tones. Add delicate out-of-focus dried flowers and flowing ivory fabric in the foreground and background for depth, ensuring they remain subtle and never compete with the necklace.
+
+The necklace is the clear hero, occupying approximately 50–60% of the frame while remaining completely visible with comfortable breathing room. Maintain sharp focus on the necklace's primary design, {{stone}} stones, chain texture, and defining craftsmanship, with the secondary props and background softly blurred.
+
+Use soft diffused professional studio lighting with gentle warm highlights, realistic {{finish}} metal reflections, accurate gemstone sparkle, natural shadows, and premium material textures. Use enough depth of field to keep all essential necklace details readable while still creating soft creamy background separation. 85mm luxury product photography look, editorial styling, minimal balanced composition, photorealistic, ultra-detailed, premium boutique ecommerce photography.
+
+The final image should feel elegant, elevated, contemporary, and suitable for a premium jewellery brand campaign.
+
+Square 1:1 composition.
+
+## Negative Prompt
+
+Altered or redesigned necklace, incorrect shape, proportions, dimensions, changed chain length, altered chain thickness, incorrect links, missing or extra links, missing or extra pendant components, resized gemstones, missing or extra gemstones, incorrect stone placement, altered metalwork, altered clasp, hook, loop or connector, incorrect {{finish}} finish, distorted, tangled, knotted, warped, melted, deformed necklace.
+
+Added jewellery pieces, duplicate necklace, floating necklace, unsupported necklace, impossible chain drape, necklace passing through stand, incomplete necklace, cropped chain, cropped clasp when essential to the product.
+
+Hands, model, neck, face, body, text, letters, logo, watermark, signature, brand mark, stamp, timestamp, price tag, label, sticker, packaging, box, cluttered background, distracting props, excessive flowers, harsh shadows, dark lighting, blown highlights, excessive sparkle, unrealistic reflections, CGI, 3D render, cartoon, illustration, low detail, low resolution, blur on essential jewellery details, noisy image, oversaturated colours.
+
+## Camera & Lighting
+
+85mm product lens look, f/3.2 to f/4, ISO 100, soft diffused key light from approximately 45 degrees, gentle reflector fill, soft overhead ambient light, controlled depth of field, creamy bokeh, realistic luxury jewellery reflections.
+
+Keep the full necklace clearly visible and naturally arranged. The ivory suede bust stand should support the necklace physically but remain secondary to the jewellery.

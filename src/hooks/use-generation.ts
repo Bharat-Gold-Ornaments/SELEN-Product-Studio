@@ -233,6 +233,8 @@ export function useStartGeneration() {
 interface RegenerateInput {
   productId: string;
   category: ImageCategory;
+  /** Picks which product type's own prompt for this category to use — see lib/template-categories.ts. */
+  productType: ProductType;
   variables: ImagePromptVariables;
   /**
    * Every reference photo used for the initial generation (front/side/worn,
@@ -265,13 +267,17 @@ export function useRegenerateCategory() {
   return useMutation({
     mutationFn: async ({
       category,
+      productType,
       variables,
       referencePhotos,
       poolPhotoIds,
       generatedFolderId,
     }: RegenerateInput) => {
       const formData = new FormData();
-      formData.append("meta", JSON.stringify({ category, variables, poolPhotoIds, generatedFolderId }));
+      formData.append(
+        "meta",
+        JSON.stringify({ category, productType, variables, poolPhotoIds, generatedFolderId })
+      );
       // Every photo is appended under the same key — FormData supports
       // repeated keys natively, and the API route reads them all back with
       // formData.getAll("referencePhoto").

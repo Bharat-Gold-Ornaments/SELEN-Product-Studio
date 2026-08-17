@@ -1,0 +1,33 @@
+# SELEN — Hero Earring Prompt
+
+Premium luxury studio product photograph featuring the uploaded earrings as the exact product reference. The uploaded jewellery is the sole source of truth for the product. {{referenceNote}}
+
+The earrings have a {{finish}} finish, feature {{stone}} stones, have dimensions of {{dimensions}}, and belong to the {{collections}} collection. Use these details to accurately understand and present the product, but always prioritize the uploaded reference image for the exact design and appearance.
+
+Preserve the exact jewellery design, silhouette, proportions, dimensions, construction, gemstone count, gemstone size and placement, metalwork, texture, finish, prongs, loops, hooks, posts, backs, clasps, thickness, and all other defining details. Do not redesign, reinterpret, simplify, add, remove, enlarge, reduce, or modify any part of the earrings.
+
+Show the complete matching pair exactly as applicable. Display both earrings hanging naturally and physically supported on an elegant ivory suede T-bar jewellery stand with a clean, refined premium finish. The complete T-bar stand should be visible, while remaining secondary to the earrings. Ensure the earrings hang naturally from their actual hook, post, or fastening structure without altering how they are constructed.
+
+Place the stand on a luxurious creamy marble surface with subtle natural veining. Use a sophisticated palette of warm ivory, champagne, cream, beige, and soft nude tones. Add delicate out-of-focus dried flowers and flowing ivory fabric in the foreground and background for depth, ensuring they remain subtle and never distract from the earrings.
+
+The earrings are the clear hero, occupying approximately 40–50% of the frame. Keep the complete pair fully visible with comfortable breathing room. Maintain sharp focus on the earrings, especially the {{stone}} stones, metalwork, hooks, and defining craftsmanship, while the stand, props, and background transition into soft creamy bokeh.
+
+Use soft diffused professional studio lighting with gentle warm highlights, realistic {{finish}} metal reflections, accurate gemstone sparkle, natural shadows, and premium material textures. 85mm macro product photography look, shallow depth of field, creamy bokeh, editorial luxury styling, ultra-clean centered composition, photorealistic, ultra-detailed, premium boutique ecommerce photography.
+
+The final image should feel like a premium contemporary jewellery campaign: refined, minimal, elegant, warm, and aspirational.
+
+Square 1:1 composition.
+
+## Negative Prompt
+
+Altered or redesigned earrings, incorrect shape, incorrect proportions, incorrect dimensions, different pair, mismatched earrings, asymmetrical pair when the original is symmetrical, duplicate earrings, missing earring, extra earring, missing or extra components, resized gemstones, missing or extra gemstones, incorrect stone placement, altered metalwork, incorrect {{finish}} finish, changed hooks, posts, backs, loops, clasps, prongs, thickness, distorted, warped, melted, deformed metal.
+
+Floating earrings, unsupported earrings, incorrectly attached earrings, earrings passing through the stand, incorrect hanging orientation.
+
+Hands, model, face, body, ears, text, letters, logo, watermark, signature, brand mark, stamp, timestamp, string, thread, cord, price tag, label, sticker, packaging, box, cluttered background, distracting props, excessive flowers, harsh shadows, dark lighting, blown highlights, excessive sparkle, unrealistic reflections, CGI, 3D render, cartoon, illustration, low detail, low resolution, blur on jewellery, noisy image, oversaturated colours, cropped jewellery, incomplete earrings, incomplete stand.
+
+## Camera & Lighting
+
+85mm macro lens, f/2.8, ISO 100, soft diffused key light from approximately 45 degrees, subtle reflector for gentle fill, soft overhead ambient fill, shallow depth of field, creamy bokeh, realistic luxury product lighting.
+
+The earrings should occupy approximately 45% of the image height, with the complete T-bar stand visible but clearly secondary, ensuring the earrings are the immediate focal point.

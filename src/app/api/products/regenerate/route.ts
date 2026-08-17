@@ -3,11 +3,17 @@ import { z } from "zod";
 import { IMAGE_CATEGORIES } from "@/lib/constants";
 import { regenerateCategory } from "@/services/product-generation";
 import { downloadFile } from "@/services/google-drive";
+import type { ProductType } from "@/types/product";
 
 export const maxDuration = 60;
 
 const metaSchema = z.object({
   category: z.enum(IMAGE_CATEGORIES),
+  // Picks which product type's own Hero/Lifestyle/Closeup prompt to use —
+  // each product type has its own independently-editable template now (see
+  // lib/template-categories.ts), so this can't be inferred from `category`
+  // alone the way it could when every product type shared one prompt.
+  productType: z.string(),
   variables: z.object({
     productType: z.string(),
     finish: z.string(),
@@ -77,6 +83,7 @@ export async function POST(request: Request) {
   const referenceImages = [...localReferenceImages, ...poolReferenceImages];
 
   const result = await regenerateCategory(
+    meta.productType as ProductType,
     meta.category,
     meta.variables,
     referenceImages,
