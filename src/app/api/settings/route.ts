@@ -14,11 +14,14 @@ export async function GET() {
 const countField = z.number().int().min(1, "Must be at least 1").max(6, "6 is the max per category").optional();
 
 const patchSchema = z.object({
-  generationCounts: z.object({
-    hero: countField,
-    lifestyle: countField,
-    closeup: countField,
-  }),
+  generationCounts: z
+    .object({
+      hero: countField,
+      lifestyle: countField,
+      closeup: countField,
+    })
+    .optional(),
+  imageProvider: z.enum(["kie", "leonardo"]).optional(),
 });
 
 /** Saves the Default Generation Counts form on Settings. */

@@ -58,13 +58,13 @@ const POLL_INTERVAL_MS = 3000;
 // a hard execution-time ceiling — 10s on Hobby, up to 300s on Pro with
 // `export const maxDuration` set on the calling route. Any route handler
 // that calls generateHero/Lifestyle/Closeup (or generateAllImages)
-// needs `export const maxDuration = 90;` (or higher, matching this value,
+// needs `export const maxDuration = 180;` (or higher, matching this value,
 // on a plan that allows it) or Leonardo jobs that run long will get cut off
 // mid-poll. If generations routinely take longer than this in practice,
 // the fix is to switch to client-side polling against a status endpoint
 // instead of blocking the server for the whole job — not to keep raising
 // this number.
-const POLL_TIMEOUT_MS = 90_000;
+const POLL_TIMEOUT_MS = 180_000;
 
 // NOTE: field names below (sdGenerationJob.generationId,
 // generations_by_pk.status/.generated_images[].url) match Leonardo's
@@ -246,8 +246,11 @@ async function createGeneration(params: CreateGenerationParams): Promise<string>
  *
  * Real feature losses versus the v1 models, inherent to these models on
  * Leonardo's platform, not a gap in this integration:
- *  - No negative prompt support on any v2 model seen so far —
- *    `params.negativePrompt` is silently dropped here.
+ *  - No negative prompt support on any v2 model seen so far — there's no
+ *    request field for it at all, so `params.negativePrompt` (when present)
+ *    is instead appended to the end of `params.prompt` as `avoid: "..."`
+ *    before it's sent, the only way to get that instruction in front of a
+ *    v2 model.
  *  - Reference-photo influence is a bucketed LOW/MID/HIGH strength
  *    (V2_IMAGE_REFERENCE_STRENGTH) rather than v1's continuous 0-1
  *    `init_strength` dial. GPT Image 2 goes a step further and ignores
@@ -263,6 +266,10 @@ async function createGeneration(params: CreateGenerationParams): Promise<string>
  * `guidances.image_reference`).
  */
 async function createGenerationV2(model: string, params: CreateGenerationParams): Promise<string> {
+  // See the doc comment above — this is the only way negative-prompt intent
+  // reaches a v2 model, since there's no dedicated field for it here.
+  const prompt = params.negativePrompt ? `${params.prompt}\n\navoid: "${params.negativePrompt}"` : params.prompt;
+
   const imageIds = (params.initImageIds ?? []).slice(0, MAX_V2_REFERENCE_IMAGES);
   const referenceGuidance =
     imageIds.length > 0
@@ -283,7 +290,7 @@ async function createGenerationV2(model: string, params: CreateGenerationParams)
         public: false,
         model,
         parameters: {
-          prompt: params.prompt,
+          prompt,
           quantity: params.numImages,
           width: IMAGE_SIZE.width,
           height: IMAGE_SIZE.height,

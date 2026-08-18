@@ -5,7 +5,10 @@ import { regenerateCategory } from "@/services/product-generation";
 import { downloadFile } from "@/services/google-drive";
 import type { ProductType } from "@/types/product";
 
-export const maxDuration = 60;
+// Matches generate/route.ts's maxDuration — a regenerate is a single
+// category's worth of the same generation flow, so it needs the same
+// ceiling above services/kie.ts's or services/leonardo.ts's POLL_TIMEOUT_MS.
+export const maxDuration = 180;
 
 const metaSchema = z.object({
   category: z.enum(IMAGE_CATEGORIES),

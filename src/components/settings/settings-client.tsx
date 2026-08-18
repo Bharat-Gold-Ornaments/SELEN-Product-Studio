@@ -8,14 +8,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { IMAGE_CATEGORIES, IMAGE_CATEGORY_LABELS } from "@/lib/constants";
-import { useIntegrationStatus, useAppSettings, useUpdateGenerationCounts } from "@/hooks/use-settings";
+import {
+  useIntegrationStatus,
+  useAppSettings,
+  useUpdateGenerationCounts,
+  useUpdateImageProvider,
+  type ImageProvider,
+} from "@/hooks/use-settings";
 import type { ImageCategory } from "@/types/product";
 
 export function SettingsClient() {
   return (
     <PageShell title="Settings" description="Integration status and default generation counts.">
       <IntegrationStatusCard />
+      <ImageProviderCard />
       <GenerationCountsCard />
     </PageShell>
   );
@@ -78,6 +86,61 @@ function IntegrationStatusCard() {
   );
 }
 
+const PROVIDER_OPTIONS: { value: ImageProvider; label: string; description: string }[] = [
+  { value: "kie", label: "Kie", description: "Default. Same GPT Image 2 model as Leonardo, via a different aggregator." },
+  { value: "leonardo", label: "Leonardo", description: "Kept available as a fallback — see Integration Status above." },
+];
+
+function ImageProviderCard() {
+  const settingsQuery = useAppSettings();
+  const updateProvider = useUpdateImageProvider();
+
+  function handleSelect(provider: ImageProvider) {
+    if (provider === settingsQuery.data?.imageProvider) return;
+    updateProvider.mutate(provider, {
+      onSuccess: () => toast.success(`Switched to ${provider === "kie" ? "Kie" : "Leonardo"}.`),
+      onError: (error) => toast.error(error instanceof Error ? error.message : "Couldn't switch provider."),
+    });
+  }
+
+  const active = settingsQuery.data?.imageProvider ?? "kie";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Image Generation Provider</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3 pt-0">
+        <p className="text-sm text-muted-foreground">
+          Which service generates Hero/Lifestyle/Closeup images — every product uses whichever is active here.
+        </p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {PROVIDER_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => handleSelect(option.value)}
+              disabled={settingsQuery.isLoading || updateProvider.isPending}
+              className={cn(
+                "flex flex-col items-start gap-1 rounded-xl border px-4 py-3 text-left transition-colors disabled:pointer-events-none disabled:opacity-50",
+                active === option.value
+                  ? "border-primary bg-accent"
+                  : "border-border hover:bg-secondary"
+              )}
+            >
+              <span className="text-sm font-medium text-foreground">
+                {option.label}
+                {active === option.value ? " · Active" : ""}
+              </span>
+              <span className="text-xs text-muted-foreground">{option.description}</span>
+            </button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function GenerationCountsCard() {
   const settingsQuery = useAppSettings();
   const updateCounts = useUpdateGenerationCounts();
@@ -122,8 +185,8 @@ function GenerationCountsCard() {
       </CardHeader>
       <CardContent className="flex flex-col gap-4 pt-0">
         <p className="text-sm text-muted-foreground">
-          How many images Leonardo generates per category, every time Generate runs. Higher counts give more to
-          choose from on Review but cost more per product.
+          How many images the active provider (above) generates per category, every time Generate runs. Higher
+          counts give more to choose from on Review but cost more per product.
         </p>
         {settingsQuery.isLoading ? (
           <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">

@@ -651,3 +651,49 @@ export async function writeTemplateFile(fileName: string, content: string): Prom
   const meta = await drive.files.get({ fileId, fields: "modifiedTime", supportsAllDrives: true });
   return { content, updatedAt: meta.data.modifiedTime || new Date().toISOString() };
 }
+
+// ── Config (small admin-editable JSON settings) ─────────────────────────
+// Same EROFS problem as Templates above, same fix: services/app-settings.ts
+// used to write a local data/app-settings.json file directly, which is
+// exactly what threw EROFS for templates.ts on Vercel — this is the same
+// storage swap applied there before it caused the same bug here too.
+
+async function configFolderId(): Promise<string> {
+  return createFolder("Config", rootFolderId());
+}
+
+/** Reads one config file's raw text content by name (e.g. "app-settings.json"). Null if it doesn't exist yet. */
+export async function readConfigFile(fileName: string): Promise<string | null> {
+  const drive = getDriveClient();
+  const folderId = await configFolderId();
+  const fileId = await findChild(folderId, fileName, `mimeType != '${FOLDER_MIME_TYPE}'`);
+  if (!fileId) return null;
+
+  const contentRes = await drive.files.get(
+    { fileId, alt: "media", supportsAllDrives: true },
+    { responseType: "arraybuffer" }
+  );
+  return Buffer.from(contentRes.data as ArrayBuffer).toString("utf-8");
+}
+
+/** Creates or overwrites one config file by name. */
+export async function writeConfigFile(fileName: string, content: string): Promise<void> {
+  const drive = getDriveClient();
+  const folderId = await configFolderId();
+  const existingId = await findChild(folderId, fileName, `mimeType != '${FOLDER_MIME_TYPE}'`);
+  const media = { mimeType: "application/json", body: Readable.from(Buffer.from(content, "utf-8")) };
+
+  if (existingId) {
+    await drive.files.update({ fileId: existingId, media, fields: "id", supportsAllDrives: true });
+  } else {
+    const res = await drive.files.create({
+      requestBody: { name: fileName, parents: [folderId] },
+      media,
+      fields: "id",
+      supportsAllDrives: true,
+    });
+    if (!res.data.id) {
+      throw new Error(`Google Drive did not return an id when saving config file "${fileName}".`);
+    }
+  }
+}

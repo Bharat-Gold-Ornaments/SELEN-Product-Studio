@@ -35,8 +35,11 @@ export function useIntegrationStatus() {
   });
 }
 
+export type ImageProvider = "kie" | "leonardo";
+
 export interface AppSettings {
   generationCounts: Record<ImageCategory, number>;
+  imageProvider: ImageProvider;
 }
 
 /** Default Generation Counts and any other admin-editable settings — see services/app-settings.ts. */
@@ -62,6 +65,27 @@ export function useUpdateGenerationCounts() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ generationCounts }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "Couldn't save settings.");
+      }
+      return (await res.json()) as AppSettings;
+    },
+    onSuccess: (settings) => {
+      queryClient.setQueryData(["app-settings"], settings);
+    },
+  });
+}
+
+export function useUpdateImageProvider() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (imageProvider: ImageProvider) => {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageProvider }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);

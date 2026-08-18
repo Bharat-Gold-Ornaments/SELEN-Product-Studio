@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkKieConnection } from "@/services/kie";
 import { checkLeonardoConnection } from "@/services/leonardo";
 import { checkDriveConnection } from "@/services/google-drive";
 import { checkSheetsConnection } from "@/services/google-sheets";
@@ -13,7 +14,11 @@ interface ServiceCheck {
   check: () => Promise<void>;
 }
 
+// Both image providers are checked regardless of which is currently active
+// in Settings — useful to know a provider is misconfigured before switching
+// to it, not just after.
 const CHECKS: ServiceCheck[] = [
+  { id: "kie", label: "Kie (image generation)", check: checkKieConnection },
   { id: "leonardo", label: "Leonardo (image generation)", check: checkLeonardoConnection },
   { id: "drive", label: "Google Drive (photo storage)", check: checkDriveConnection },
   { id: "sheets", label: "Google Sheets (product data)", check: checkSheetsConnection },

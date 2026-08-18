@@ -24,6 +24,12 @@ const imageCategoriesByProductType = PRODUCT_TYPES.map((productType) => ({
   templates: TEMPLATE_CATEGORIES.filter((c) => c.group === "Image prompts" && c.productType === productType.value),
 }));
 
+// Leonardo has historically rejected prompts over roughly this length with a
+// 400 — this is the raw template's own length, before {{variable}}
+// substitution (which only ever grows it further), so it's a soft heads-up
+// rather than an exact prediction of what'll actually get sent.
+const LONG_PROMPT_WARNING = 1500;
+
 export default function TemplatesPage() {
   const { data: templates, isLoading, isError } = useTemplates();
   const updateTemplate = useUpdateTemplate();
@@ -140,12 +146,25 @@ export default function TemplatesPage() {
               </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-4 pt-0">
-              <Textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                rows={12}
-                className="font-mono text-xs"
-              />
+              <div className="flex flex-col gap-1">
+                <Textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  rows={12}
+                  className="font-mono text-xs"
+                />
+                <span
+                  className={cn(
+                    "self-end text-xs",
+                    draft.length > LONG_PROMPT_WARNING ? "text-warning" : "text-muted-foreground"
+                  )}
+                >
+                  {draft.length.toLocaleString()} character{draft.length === 1 ? "" : "s"}
+                  {draft.length > LONG_PROMPT_WARNING
+                    ? ` — over Leonardo's ~${LONG_PROMPT_WARNING.toLocaleString()} limit`
+                    : ""}
+                </span>
+              </div>
 
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="text-xs text-muted-foreground">Available variables:</span>

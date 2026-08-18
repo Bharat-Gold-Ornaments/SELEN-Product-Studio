@@ -15,9 +15,10 @@ const CATEGORY_LABEL = Object.fromEntries(PRODUCT_TYPES.map((t) => [t.value, t.l
   string
 >;
 
-// Leonardo generation can take a while; see the timeout note in
+// Image generation (Kie or Leonardo, whichever is active — see
+// services/image-generation.ts) can take a while; see the timeout note in
 // services/leonardo.ts for why this is capped where it is.
-export const maxDuration = 90;
+export const maxDuration = 180;
 
 async function toOriginalPhoto(field: "front" | "side" | "worn", file: File): Promise<OriginalPhoto> {
   return {

@@ -1,11 +1,10 @@
 import "server-only";
 import { ensureProductFolders, uploadOriginal, uploadGenerated, type ProductFolders } from "@/services/google-drive";
-import {
-  generateAllImages,
-  generateCategoryImages,
-  type ImagePromptVariables,
-  type CategoryGenerationResult,
-  type ReferenceImage,
+import { generateAllImages, generateCategoryImages } from "@/services/image-generation";
+import type {
+  ImagePromptVariables,
+  CategoryGenerationResult,
+  ReferenceImage,
 } from "@/services/leonardo";
 import type { ProductType, ImageCategory } from "@/types/product";
 
