@@ -575,3 +575,79 @@ export async function downloadFile(fileId: string): Promise<{ buffer: Buffer; mi
     name: metaRes.data.name || fileId,
   };
 }
+
+// ── Templates (Template Manager) ────────────────────────────────────────
+// Prompt templates edited via the Template Manager UI live here, not just as
+// local files under /templates. Vercel's deployed filesystem is read-only
+// at runtime, so a plain fs.writeFile there throws EROFS the moment anyone
+// saves an edit from a deployed instance — services/templates.ts falls back
+// to the bundled /templates copy only as a first-run default for whichever
+// templates haven't been saved here yet; every actual edit lands in this
+// Drive folder instead, the one place a write can actually persist in
+// production. No public permissions are granted on these files (unlike
+// uploadFile above) — prompt text is never displayed as an image, so there's
+// no reason to make it link-accessible.
+
+async function templatesFolderId(): Promise<string> {
+  return createFolder("Templates", rootFolderId());
+}
+
+export interface DriveTemplateFile {
+  content: string;
+  updatedAt: string;
+}
+
+/** Looks up one template by file name (e.g. "ring-hero.txt"). Null if it hasn't been saved here yet. */
+export async function readTemplateFile(fileName: string): Promise<DriveTemplateFile | null> {
+  const drive = getDriveClient();
+  const folderId = await templatesFolderId();
+  const res = await drive.files.list({
+    q: `'${folderId}' in parents and name = '${escapeForQuery(fileName)}' and trashed = false and mimeType != '${FOLDER_MIME_TYPE}'`,
+    fields: "files(id, modifiedTime)",
+    spaces: "drive",
+    pageSize: 1,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
+
+  const file = res.data.files?.[0];
+  if (!file?.id) return null;
+
+  const contentRes = await drive.files.get(
+    { fileId: file.id, alt: "media", supportsAllDrives: true },
+    { responseType: "arraybuffer" }
+  );
+
+  return {
+    content: Buffer.from(contentRes.data as ArrayBuffer).toString("utf-8"),
+    updatedAt: file.modifiedTime || new Date().toISOString(),
+  };
+}
+
+/** Creates or overwrites one template file by name — what the Template Manager's Save button calls. */
+export async function writeTemplateFile(fileName: string, content: string): Promise<DriveTemplateFile> {
+  const drive = getDriveClient();
+  const folderId = await templatesFolderId();
+  const existingId = await findChild(folderId, fileName, `mimeType != '${FOLDER_MIME_TYPE}'`);
+  const media = { mimeType: "text/plain", body: Readable.from(Buffer.from(content, "utf-8")) };
+
+  let fileId: string;
+  if (existingId) {
+    await drive.files.update({ fileId: existingId, media, fields: "id", supportsAllDrives: true });
+    fileId = existingId;
+  } else {
+    const res = await drive.files.create({
+      requestBody: { name: fileName, parents: [folderId] },
+      media,
+      fields: "id",
+      supportsAllDrives: true,
+    });
+    if (!res.data.id) {
+      throw new Error(`Google Drive did not return an id when saving template "${fileName}".`);
+    }
+    fileId = res.data.id;
+  }
+
+  const meta = await drive.files.get({ fileId, fields: "modifiedTime", supportsAllDrives: true });
+  return { content, updatedAt: meta.data.modifiedTime || new Date().toISOString() };
+}

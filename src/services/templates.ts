@@ -5,6 +5,7 @@ import {
   TEMPLATE_CATEGORIES,
   type TemplateCategoryId,
 } from "@/lib/template-categories";
+import { readTemplateFile, writeTemplateFile } from "@/services/google-drive";
 
 const TEMPLATES_DIR = path.join(process.cwd(), "templates");
 
@@ -17,8 +18,12 @@ export interface TemplateRecord {
   updatedAt: string;
 }
 
-function filePath(id: TemplateCategoryId): string {
-  return path.join(TEMPLATES_DIR, `${id}.txt`);
+function driveFileName(id: TemplateCategoryId): string {
+  return `${id}.txt`;
+}
+
+function seedFilePath(id: TemplateCategoryId): string {
+  return path.join(TEMPLATES_DIR, driveFileName(id));
 }
 
 function categoryMeta(id: TemplateCategoryId) {
@@ -27,24 +32,28 @@ function categoryMeta(id: TemplateCategoryId) {
   return category;
 }
 
+async function readSeed(id: TemplateCategoryId): Promise<{ content: string; updatedAt: string }> {
+  const [content, stats] = await Promise.all([
+    fs.readFile(seedFilePath(id), "utf-8"),
+    fs.stat(seedFilePath(id)),
+  ]);
+  return { content, updatedAt: stats.mtime.toISOString() };
+}
+
 /**
- * Reads one template from disk.
- *
- * Storage note: in local development, and any non-serverless deployment,
- * this reads/writes real files under /templates, so edits made in the
- * Template Manager persist immediately — there is nothing fake about this
- * implementation. On Vercel specifically, the filesystem is read-only at
- * runtime, so writes made here won't persist across invocations or
- * redeploys; Milestone 4 adds a Google-Drive-backed implementation behind
- * this exact function signature so callers (the API routes, and later the
- * Leonardo/Anthropic services) never have to change.
+ * Reads one template — from the Drive "Templates" folder (see
+ * services/google-drive.ts) if it's been saved there before, falling back to
+ * the seed copy bundled under /templates otherwise. Drive is the only place
+ * an actual edit persists: on Vercel the deployed /templates files are
+ * read-only at runtime, so this used to write straight to them, which threw
+ * EROFS the moment anyone saved from a live instance. The local files now
+ * serve purely as first-run defaults for whichever templates haven't been
+ * saved through the Template Manager yet.
  */
 export async function readTemplate(id: TemplateCategoryId): Promise<TemplateRecord> {
   const category = categoryMeta(id);
-  const [content, stats] = await Promise.all([
-    fs.readFile(filePath(id), "utf-8"),
-    fs.stat(filePath(id)),
-  ]);
+  const driveFile = await readTemplateFile(driveFileName(id));
+  const { content, updatedAt } = driveFile ?? (await readSeed(id));
 
   return {
     id,
@@ -52,7 +61,7 @@ export async function readTemplate(id: TemplateCategoryId): Promise<TemplateReco
     description: category.description,
     variables: category.variables,
     content,
-    updatedAt: stats.mtime.toISOString(),
+    updatedAt,
   };
 }
 
@@ -60,16 +69,29 @@ export async function listTemplates(): Promise<TemplateRecord[]> {
   return Promise.all(TEMPLATE_CATEGORIES.map((category) => readTemplate(category.id)));
 }
 
+/**
+ * Saves a template edit to Drive — the Template Manager's Save button. See
+ * readTemplate's doc comment for why Drive, not the local file, is the only
+ * persistence path now.
+ */
 export async function writeTemplate(
   id: TemplateCategoryId,
   content: string
 ): Promise<TemplateRecord> {
-  categoryMeta(id); // throws on unknown id
+  const category = categoryMeta(id); // throws on unknown id
   if (!content.trim()) {
     throw new Error("Template content cannot be empty.");
   }
-  await fs.writeFile(filePath(id), content, "utf-8");
-  return readTemplate(id);
+  const saved = await writeTemplateFile(driveFileName(id), content);
+
+  return {
+    id,
+    label: category.label,
+    description: category.description,
+    variables: category.variables,
+    content: saved.content,
+    updatedAt: saved.updatedAt,
+  };
 }
 
 /**
