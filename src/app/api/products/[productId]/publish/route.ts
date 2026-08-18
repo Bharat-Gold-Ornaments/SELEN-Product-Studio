@@ -125,6 +125,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
       images,
       seoTitle: record.seoTitle || record.title,
       metaDescription: record.metaDescription,
+      weightGrams: record.weightGrams,
+      stone: record.stone,
+      finish: record.finish,
+      widthCm: record.widthCm,
+      lengthCm: record.lengthCm,
     });
 
     await updateProductRow(productId, { status: "published", shopifyProductId: result.shopifyProductId });

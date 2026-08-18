@@ -147,6 +147,55 @@ async function getPrimaryLocationId(): Promise<string> {
   return id;
 }
 
+// ── Sales channel publishing ────────────────────────────────────────────
+// productSet has no field for this — a product it creates starts published
+// to zero sales channels, invisible everywhere (Online Store, POS, etc.)
+// until someone opens it in Shopify admin and toggles channels on by hand.
+// This makes that automatic. Requires read_publications + write_publications
+// scopes on top of everything else this file already needs.
+
+let cachedPublicationIds: string[] | null = null;
+
+/** Every sales channel/publication on the store — cached per server instance, same reasoning as getPrimaryLocationId. */
+async function getAllPublicationIds(): Promise<string[]> {
+  if (cachedPublicationIds) return cachedPublicationIds;
+
+  const data = await shopifyGraphQL<{ publications: { nodes: { id: string }[] } }>(
+    `query { publications(first: 250) { nodes { id } } }`,
+    {}
+  );
+  const ids = data.publications.nodes.map((n) => n.id);
+  cachedPublicationIds = ids;
+  return ids;
+}
+
+/**
+ * Publishes a product to every sales channel on the store in one call.
+ * Best-effort, same as setProductSeo below — the product already exists by
+ * the time this runs, so a failure here (e.g. scopes not granted yet)
+ * shouldn't be reported as the whole publish failing, just logged; the
+ * product just needs its channels turned on by hand in Shopify admin until
+ * this succeeds.
+ */
+async function publishToAllChannels(productId: string): Promise<void> {
+  const publicationIds = await getAllPublicationIds();
+  if (publicationIds.length === 0) return;
+
+  const data = await shopifyGraphQL<{
+    publishablePublish: {
+      userErrors: { field?: string[] | null; message: string }[];
+    };
+  }>(
+    `mutation publishToChannels($id: ID!, $input: [PublicationInput!]!) {
+      publishablePublish(id: $id, input: $input) {
+        userErrors { field message }
+      }
+    }`,
+    { id: productId, input: publicationIds.map((publicationId) => ({ publicationId })) }
+  );
+  assertNoUserErrors(data.publishablePublish.userErrors, "publishablePublish");
+}
+
 // ── Image upload ─────────────────────────────────────────────────────────
 
 export interface ShopifyImageInput {
@@ -223,6 +272,82 @@ async function stageImageUpload(image: ShopifyImageInput): Promise<string> {
   return target.resourceUrl;
 }
 
+// ── Product category (Shopify's standard taxonomy) ──────────────────────
+// productSet's `category` field wants a taxonomy category id (e.g.
+// "Apparel & Accessories > Jewelry > Rings"), not a plain string — and
+// hardcoding those ids would mean guessing at Shopify's actual taxonomy
+// data, the same mistake that caused the optionValues/productOptions
+// errors earlier. Looked up dynamically instead, via the `taxonomy.categories`
+// search Shopify's API itself exposes, and cached per search term per
+// server instance (a product type never resolves to a different category
+// mid-session, so there's no reason to re-query for every product).
+
+// Keyed by the exact label PRODUCT_TYPES produces (see lib/constants.ts) —
+// input.productType is already that label by the time it reaches here (see
+// api/products/[productId]/publish/route.ts). Search terms are the plural
+// Shopify taxonomy actually uses; "Earrings" is already plural so it's
+// unchanged.
+const CATEGORY_SEARCH_TERM: Record<string, string> = {
+  Earrings: "Earrings",
+  Ring: "Rings",
+  Pendant: "Pendants",
+  Necklace: "Necklaces",
+  Bracelet: "Bracelets",
+};
+
+const cachedCategoryIds = new Map<string, string | null>();
+
+/**
+ * Searches Shopify's taxonomy for `searchTerm` and returns the id of
+ * whichever match's full path actually contains "Jewelry" — a plain search
+ * for e.g. "Rings" can also match unrelated categories (curtain rings,
+ * napkin rings, etc.), so this is how a wrong category never gets picked
+ * silently. Returns null (not an error) if nothing under Jewelry matched;
+ * callers treat that the same as "couldn't resolve" and just omit category
+ * rather than blocking the publish over it.
+ */
+async function findJewelryCategoryId(searchTerm: string): Promise<string | null> {
+  if (cachedCategoryIds.has(searchTerm)) return cachedCategoryIds.get(searchTerm)!;
+
+  const data = await shopifyGraphQL<{
+    taxonomy: { categories: { edges: { node: { id: string; fullName: string } }[] } };
+  }>(
+    `query findCategory($search: String!) {
+      taxonomy {
+        categories(search: $search, first: 20) {
+          edges { node { id fullName } }
+        }
+      }
+    }`,
+    { search: searchTerm }
+  );
+
+  const match = data.taxonomy.categories.edges.find((edge) => edge.node.fullName.includes("Jewelry"));
+  const id = match?.node.id ?? null;
+  cachedCategoryIds.set(searchTerm, id);
+  return id;
+}
+
+/**
+ * Best-effort category resolution for one product — never throws, since a
+ * product should still publish (just without a Category set) rather than
+ * fail entirely over a taxonomy lookup hiccup.
+ */
+async function resolveCategoryId(productTypeLabel: string): Promise<string | null> {
+  const searchTerm = CATEGORY_SEARCH_TERM[productTypeLabel];
+  if (!searchTerm) return null;
+
+  try {
+    return await findJewelryCategoryId(searchTerm);
+  } catch (error) {
+    console.warn(
+      `Couldn't resolve a Shopify taxonomy category for "${productTypeLabel}":`,
+      error instanceof Error ? error.message : error
+    );
+    return null;
+  }
+}
+
 // ── Product creation ─────────────────────────────────────────────────────
 
 export interface CreateShopifyProductInput {
@@ -234,11 +359,67 @@ export interface CreateShopifyProductInput {
   inventory: number;
   /** Hero, lifestyle, closeup — in the order they should appear on the product page. */
   images: ShopifyImageInput[];
+  /** Short SEO-style summary — also fills the "Short Description" product metafield, see buildMetafields. */
+  metaDescription: string;
+  /** Raw values for the store's existing custom product metafields — see buildMetafields. Nullish ones just don't get a metafield set. */
+  weightGrams: number;
+  stone: string;
+  finish: string;
+  widthCm: number | null;
+  lengthCm: number | null;
 }
 
 export interface PublishProductInput extends CreateShopifyProductInput {
   seoTitle: string;
-  metaDescription: string;
+}
+
+// ── Product metafields ───────────────────────────────────────────────────
+// The 6 custom metafield definitions already set up on this store (Settings
+// > Custom data > Products): Short Description, Weight (display), Stone,
+// Material, Width (cm), Length (cm). Namespace/key confirmed live against
+// the store's own metafieldDefinitions rather than guessed — a wrong
+// namespace/key either creates a stray duplicate definition or fails
+// outright, the same class of mistake as the productOptions/optionValues
+// errors earlier. `type` is omitted from every entry below since these all
+// already have a definition — Shopify infers/validates the type from that
+// instead of needing it repeated here.
+//
+// Only ever includes a metafield when there's an actual value for it —
+// most product types leave one or more of stone/widthCm/lengthCm unused
+// (e.g. a ring has no widthCm), and there's no reason to write an empty
+// value for those.
+
+/** "dimension" metafields store a JSON string, not a bare number — https://shopify.dev/docs/apps/build/metafields/list-of-data-types (confirmed live: lowercase unit name, e.g. "centimeters"). */
+function dimensionMetafieldValue(cm: number): string {
+  return JSON.stringify({ value: cm, unit: "centimeters" });
+}
+
+function buildMetafields(input: CreateShopifyProductInput): { namespace: string; key: string; value: string }[] {
+  const metafields: { namespace: string; key: string; value: string }[] = [];
+
+  if (input.metaDescription) {
+    metafields.push({ namespace: "custom", key: "short_description", value: input.metaDescription });
+  }
+  if (input.weightGrams > 0) {
+    metafields.push({ namespace: "custom", key: "weight_display", value: `${input.weightGrams}g` });
+  }
+  if (input.stone) {
+    metafields.push({ namespace: "custom", key: "stone", value: input.stone });
+  }
+  if (input.finish) {
+    // No distinct "material" field exists upstream (see ProductRecord) —
+    // finish (e.g. "Polished Gold") is the closest available value, and
+    // already names the base metal as part of the finish description.
+    metafields.push({ namespace: "custom", key: "material", value: input.finish });
+  }
+  if (input.widthCm != null) {
+    metafields.push({ namespace: "custom", key: "width_cm", value: dimensionMetafieldValue(input.widthCm) });
+  }
+  if (input.lengthCm != null) {
+    metafields.push({ namespace: "custom", key: "length_cm", value: dimensionMetafieldValue(input.lengthCm) });
+  }
+
+  return metafields;
 }
 
 /**
@@ -260,9 +441,10 @@ export interface PublishProductInput extends CreateShopifyProductInput {
  * https://shopify.dev/docs/api/admin-graphql/latest/mutations/productSet
  */
 async function createShopifyProduct(input: CreateShopifyProductInput): Promise<string> {
-  const [locationId, resourceUrls] = await Promise.all([
+  const [locationId, resourceUrls, categoryId] = await Promise.all([
     getPrimaryLocationId(),
     Promise.all(input.images.map((image) => stageImageUpload(image))),
+    resolveCategoryId(input.productType),
   ]);
 
   const files = input.images.map((image, i) => ({
@@ -292,6 +474,11 @@ async function createShopifyProduct(input: CreateShopifyProductInput): Promise<s
         tags: input.tags,
         vendor: VENDOR,
         productType: input.productType,
+        // Shopify's standard taxonomy category, resolved above — omitted
+        // entirely (rather than sent as null) when resolveCategoryId
+        // couldn't find a confident match, so the field is simply left for
+        // someone to set by hand in that case instead of erroring.
+        ...(categoryId ? { category: categoryId } : {}),
         // DRAFT rather than ACTIVE — a product this app publishes lands in
         // Shopify hidden from the storefront until someone reviews it there
         // and flips it live by hand. Safer default for a tool whose output
@@ -303,6 +490,7 @@ async function createShopifyProduct(input: CreateShopifyProductInput): Promise<s
         // see this function's doc comment for why this has to be spelled out
         // explicitly now instead of just omitted.
         productOptions: [{ name: "Title", values: [{ name: "Default Title" }] }],
+        metafields: buildMetafields(input),
         variants: [
           {
             price: input.price,
@@ -360,10 +548,12 @@ export interface PublishResult {
 
 /**
  * Full publish: create the product (title/description/tags/images/price/
- * inventory) then best-effort set its SEO metadata. Called once by
- * /api/products/[productId]/publish/route.ts. SEO failing doesn't fail the
- * whole publish — see setProductSeo's doc comment — but does get logged so
- * a silently-missing SEO title is discoverable, not just lost.
+ * inventory), then best-effort set its SEO metadata and publish it to every
+ * sales channel. Called once by /api/products/[productId]/publish/route.ts.
+ * Neither follow-up failing fails the whole publish — see setProductSeo's
+ * and publishToAllChannels's doc comments — but each does get logged so a
+ * silent gap (missing SEO title, or a product stuck on zero channels) is
+ * discoverable, not just lost.
  */
 export async function publishProductToShopify(input: PublishProductInput): Promise<PublishResult> {
   const productGid = await createShopifyProduct(input);
@@ -374,6 +564,15 @@ export async function publishProductToShopify(input: PublishProductInput): Promi
   } catch (error) {
     console.warn(
       `Shopify product ${numericId} was created, but setting its SEO metadata failed:`,
+      error instanceof Error ? error.message : error
+    );
+  }
+
+  try {
+    await publishToAllChannels(productGid);
+  } catch (error) {
+    console.warn(
+      `Shopify product ${numericId} was created, but publishing it to sales channels failed:`,
       error instanceof Error ? error.message : error
     );
   }
