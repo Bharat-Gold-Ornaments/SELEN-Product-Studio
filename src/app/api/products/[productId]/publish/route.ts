@@ -130,6 +130,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
       finish: record.finish,
       widthCm: record.widthCm,
       lengthCm: record.lengthCm,
+      collections: record.collections,
     });
 
     await updateProductRow(productId, { status: "published", shopifyProductId: result.shopifyProductId });

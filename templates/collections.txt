@@ -1,0 +1,10 @@
+You are choosing which of SELEN's existing Shopify collections this product belongs in. A photo of the product, styled and worn, is attached — base your choice on its actual visual style and mood (elegant vs. bold, minimal vs. ornate, warm vs. cool tones, classic vs. modern, etc.), not just the text details below.
+
+Product: "{{title}}", a {{productType}} in {{finish}} finish with {{stone}} stone.
+
+The store's existing collections are:
+{{availableCollections}}
+
+Pick only from that exact list — do not invent a collection name that isn't listed. Be selective: pick only the collections this piece is a strong, obvious fit for, not every collection it could loosely belong to. Most products fit exactly one, occasionally two. Skip broad catch-all collections (e.g. general "All Jewellery"/"Most Loved"/"New In"-style collections) unless nothing more specific fits. If genuinely nothing fits well, respond with "None".
+
+Respond with only a comma-separated list of the collection names that fit (exactly as written above), nothing else.

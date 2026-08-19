@@ -8,9 +8,9 @@ import type { ImagePromptVariables } from "@/lib/generation-variables";
 
 // Two tiers, matching where quality actually matters for a luxury brand:
 // Title and Description are the copy a customer reads, so they get the
-// stronger model. Tags and SEO metadata are short, formulaic, and mostly
-// mechanical (comma lists, fixed-format fields), so the faster/cheaper
-// model is plenty. Both overridable per-deployment without a code change.
+// stronger model. Tags, SEO metadata, and collection classification are
+// short, formulaic, and mostly mechanical, so the faster/cheaper model is
+// plenty. Both overridable per-deployment without a code change.
 const MODEL_PRIMARY = optionalEnv("ANTHROPIC_MODEL_PRIMARY", "claude-sonnet-5");
 const MODEL_FAST = optionalEnv("ANTHROPIC_MODEL_FAST", "claude-haiku-4-5-20251001");
 
@@ -43,12 +43,25 @@ export async function checkAnthropicConnection(): Promise<void> {
   }
 }
 
-async function complete(model: string, prompt: string, maxTokens: number): Promise<string> {
+/** A single reference photo to attach to a completion — base64 only, matching the SDK's ImageBlockParam (no URL source in this SDK version). */
+export interface VisionImage {
+  data: string;
+  mediaType: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+}
+
+async function complete(model: string, prompt: string, maxTokens: number, image?: VisionImage): Promise<string> {
   const client = getClient();
+  const content: Anthropic.MessageParam["content"] = image
+    ? [
+        { type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } },
+        { type: "text", text: prompt },
+      ]
+    : prompt;
+
   const response = await client.messages.create({
     model,
     max_tokens: maxTokens,
-    messages: [{ role: "user", content: prompt }],
+    messages: [{ role: "user", content }],
   });
 
   const text = response.content
@@ -82,21 +95,22 @@ function stripWrappingQuotes(text: string): string {
 /** Variables a product's copy templates need — same shape as the image templates' variables, plus the title once one exists. */
 export type CopyPromptVariables = ImagePromptVariables & { title: string };
 
-export async function generateTitle(variables: ImagePromptVariables): Promise<string> {
+/** Title and description accept the hero image (if one exists yet) so the copy reflects what the piece actually looks like, not just its text metadata — optional since Review allows generating copy before any image is picked. */
+export async function generateTitle(variables: ImagePromptVariables, image?: VisionImage): Promise<string> {
   const template = await readTemplate("title");
   // Spread into a fresh object literal rather than passing `variables`
   // directly — renderTemplate's Record<string, string> parameter requires
   // an explicit index signature from a named interface type, but a fresh
   // literal is checked structurally instead and satisfies it without one.
   const prompt = renderTemplate(template.content, { ...variables });
-  const text = await complete(MODEL_PRIMARY, prompt, 30);
+  const text = await complete(MODEL_PRIMARY, prompt, 30, image);
   return stripWrappingQuotes(text);
 }
 
-export async function generateDescription(variables: CopyPromptVariables): Promise<string> {
+export async function generateDescription(variables: CopyPromptVariables, image?: VisionImage): Promise<string> {
   const template = await readTemplate("description");
   const prompt = renderTemplate(template.content, { ...variables });
-  const text = await complete(MODEL_PRIMARY, prompt, 40);
+  const text = await complete(MODEL_PRIMARY, prompt, 40, image);
   return stripWrappingQuotes(text);
 }
 
@@ -139,6 +153,49 @@ export async function generateSeo(variables: CopyPromptVariables): Promise<SeoCo
   return parseSeoResponse(text);
 }
 
+// Keeps only responses that actually match one of the store's real
+// collections (case-insensitively, restored to the store's exact casing) —
+// the model is asked to pick only from the provided list, but nothing stops
+// it from inventing or slightly rewording a name, and a hallucinated
+// collection name would silently fail to attach the product to anything on
+// Shopify's side. "None" (however cased) is dropped rather than kept as a
+// literal collection.
+function matchCollectionNames(raw: string[], available: string[]): string[] {
+  const lookup = new Map(available.map((name) => [name.toLowerCase(), name]));
+  const matched: string[] = [];
+  for (const item of raw) {
+    const cleaned = item.trim();
+    if (!cleaned || cleaned.toLowerCase() === "none") continue;
+    const match = lookup.get(cleaned.toLowerCase());
+    if (match && !matched.includes(match)) matched.push(match);
+  }
+  return matched;
+}
+
+/**
+ * Picks which of the store's real Shopify collections this product fits, by
+ * showing Claude the lifestyle image (if one exists yet) alongside the
+ * product details and the store's live collection list. Replaces the old
+ * manual free-text collections entry on Create Product for the purpose of
+ * copy generation — Create Product's field is left as-is for products
+ * generated before any image exists.
+ */
+export async function classifyCollections(
+  variables: CopyPromptVariables,
+  availableCollections: string[],
+  image?: VisionImage
+): Promise<string[]> {
+  if (availableCollections.length === 0) return [];
+  const template = await readTemplate("collections");
+  const prompt = renderTemplate(template.content, {
+    ...variables,
+    availableCollections: availableCollections.join(", "),
+  });
+  const text = await complete(MODEL_FAST, prompt, 100, image);
+  const raw = text.split(",").map((item) => item.trim());
+  return matchCollectionNames(raw, availableCollections);
+}
+
 // ── Orchestration ────────────────────────────────────────────────────────
 
 export type CopyFieldResult<T> =
@@ -150,6 +207,14 @@ export interface CopyGenerationResult {
   description: CopyFieldResult<string>;
   tags: CopyFieldResult<string[]>;
   seo: CopyFieldResult<SeoCopy>;
+  collections: CopyFieldResult<string[]>;
+}
+
+/** Optional images and the store's live collection list — all optional since Review allows generating copy before any image is picked, and collection classification only makes sense once there's a real collection list to choose from. */
+export interface CopyGenerationContext {
+  heroImage?: VisionImage;
+  lifestyleImage?: VisionImage;
+  availableCollections?: string[];
 }
 
 function errorMessage(reason: unknown, fallback: string): string {
@@ -165,23 +230,32 @@ function errorMessage(reason: unknown, fallback: string): string {
  * the UI show the failure inline next to that one field. Regenerating
  * description/tags/seo needs the *current* title (whatever the user has
  * approved or edited on screen, not necessarily what was last generated),
- * so callers must pass it in for anything but "title".
+ * so callers must pass it in for anything but "title"/"collections".
  */
 export async function generateCopyField(
-  field: "title" | "description" | "tags" | "seo",
+  field: "title" | "description" | "tags" | "seo" | "collections",
   variables: ImagePromptVariables,
-  title?: string
+  title?: string,
+  context: CopyGenerationContext = {}
 ): Promise<CopyFieldResult<string | string[] | SeoCopy>> {
   try {
     if (field === "title") {
-      return { status: "success", value: await generateTitle(variables) };
+      return { status: "success", value: await generateTitle(variables, context.heroImage) };
+    }
+    if (field === "collections") {
+      const value = await classifyCollections(
+        { ...variables, title: title ?? "" },
+        context.availableCollections ?? [],
+        context.lifestyleImage
+      );
+      return { status: "success", value };
     }
     if (!title || !title.trim()) {
       throw new Error(`Regenerating ${field} needs a title first.`);
     }
     const withTitle: CopyPromptVariables = { ...variables, title };
     if (field === "description") {
-      return { status: "success", value: await generateDescription(withTitle) };
+      return { status: "success", value: await generateDescription(withTitle, context.heroImage) };
     }
     if (field === "tags") {
       return { status: "success", value: await generateTags(withTitle) };
@@ -193,18 +267,21 @@ export async function generateCopyField(
 }
 
 /**
- * Generates all four copy fields for a product. Title is generated first
- * and, unlike the other three, is a hard dependency for them (they all
+ * Generates all five copy fields for a product. Title is generated first
+ * and, unlike the other four, is a hard dependency for them (they all
  * reference {{title}}) — so if title generation fails, the rest are marked
  * as skipped rather than attempted with a missing title. Once title
- * succeeds, description/tags/SEO run independently via `Promise.allSettled`
- * so a failure in one never blocks the other two, matching how
- * generateAllImages treats Hero/Lifestyle/Closeup in services/leonardo.ts.
+ * succeeds, description/tags/seo/collections run independently via
+ * `Promise.allSettled` so a failure in one never blocks the others, matching
+ * how generateAllImages treats Hero/Lifestyle/Closeup in services/leonardo.ts.
  */
-export async function generateAllCopy(variables: ImagePromptVariables): Promise<CopyGenerationResult> {
+export async function generateAllCopy(
+  variables: ImagePromptVariables,
+  context: CopyGenerationContext = {}
+): Promise<CopyGenerationResult> {
   let title: string;
   try {
-    title = await generateTitle(variables);
+    title = await generateTitle(variables, context.heroImage);
   } catch (error) {
     const message = errorMessage(error, "Title generation failed.");
     const skipped = { status: "error" as const, message: "Skipped — title generation failed." };
@@ -213,14 +290,17 @@ export async function generateAllCopy(variables: ImagePromptVariables): Promise<
       description: skipped,
       tags: skipped,
       seo: skipped,
+      collections: skipped,
     };
   }
 
   const withTitle: CopyPromptVariables = { ...variables, title };
-  const [descriptionResult, tagsResult, seoResult] = await Promise.allSettled([
-    generateDescription(withTitle),
+  const availableCollections = context.availableCollections ?? [];
+  const [descriptionResult, tagsResult, seoResult, collectionsResult] = await Promise.allSettled([
+    generateDescription(withTitle, context.heroImage),
     generateTags(withTitle),
     generateSeo(withTitle),
+    classifyCollections(withTitle, availableCollections, context.lifestyleImage),
   ]);
 
   return {
@@ -237,5 +317,9 @@ export async function generateAllCopy(variables: ImagePromptVariables): Promise<
       seoResult.status === "fulfilled"
         ? { status: "success", value: seoResult.value }
         : { status: "error", message: errorMessage(seoResult.reason, "SEO generation failed.") },
+    collections:
+      collectionsResult.status === "fulfilled"
+        ? { status: "success", value: collectionsResult.value }
+        : { status: "error", message: errorMessage(collectionsResult.reason, "Collection classification failed.") },
   };
 }

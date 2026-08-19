@@ -9,7 +9,7 @@ import { PRODUCT_TYPES, IMAGE_CATEGORIES, IMAGE_CATEGORY_LABELS } from "@/lib/co
  * way regardless of product type.
  */
 export type ImageTemplateId = `${ProductType}-${ImageCategory}`;
-export type TemplateCategoryId = ImageTemplateId | "title" | "description" | "seo" | "tags";
+export type TemplateCategoryId = ImageTemplateId | "title" | "description" | "seo" | "tags" | "collections";
 
 export interface TemplateCategoryMeta {
   id: TemplateCategoryId;
@@ -91,6 +91,14 @@ export const TEMPLATE_CATEGORIES: TemplateCategoryMeta[] = [
     group: "Copy prompts",
     description: "Instructs the copy model to write comma-separated Shopify tags.",
     variables: ["title", "productType", "finish", "stone", "collections"],
+  },
+  {
+    id: "collections",
+    label: "Collection Classification Prompt",
+    group: "Copy prompts",
+    description:
+      "Instructs the copy model (with the lifestyle image attached) to pick which of the store's real collections this product fits.",
+    variables: ["title", "productType", "finish", "stone", "availableCollections"],
   },
 ];
 

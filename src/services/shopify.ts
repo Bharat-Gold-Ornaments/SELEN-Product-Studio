@@ -196,6 +196,51 @@ async function publishToAllChannels(productId: string): Promise<void> {
   assertNoUserErrors(data.publishablePublish.userErrors, "publishablePublish");
 }
 
+// ── Collections ──────────────────────────────────────────────────────────
+
+let cachedCollections: { id: string; title: string }[] | null = null;
+
+/**
+ * Every collection on the store — used to let the Review screen's AI
+ * collection classifier (services/anthropic-copy.ts) pick from real,
+ * existing collection names instead of inventing ones that don't exist.
+ * Cached per server instance, same reasoning as getPrimaryLocationId and
+ * getAllPublicationIds above: a store's collection list doesn't change
+ * mid-session often enough to justify re-querying on every classification.
+ */
+export async function listCollections(): Promise<{ id: string; title: string }[]> {
+  if (cachedCollections) return cachedCollections;
+
+  const data = await shopifyGraphQL<{ collections: { nodes: { id: string; title: string }[] } }>(
+    `query { collections(first: 250) { nodes { id title } } }`,
+    {}
+  );
+  cachedCollections = data.collections.nodes;
+  return cachedCollections;
+}
+
+/**
+ * Resolves real collection titles (from the sheet's `collections` column —
+ * AI-classified via services/anthropic-copy.ts's classifyCollections, or
+ * hand-edited on Review) to their Shopify collection ids, for productSet's
+ * `collections` input field below. Matches case-insensitively since Claude's
+ * classification is instructed to echo the list verbatim but a hand-edit
+ * could differ in casing; any title that doesn't match a real collection is
+ * silently dropped (not erroring) so a stray/renamed title never blocks the
+ * rest of publishing.
+ */
+async function resolveCollectionIds(titles: string[]): Promise<string[]> {
+  if (titles.length === 0) return [];
+  const collections = await listCollections();
+  const lookup = new Map(collections.map((c) => [c.title.toLowerCase(), c.id]));
+  const ids: string[] = [];
+  for (const title of titles) {
+    const id = lookup.get(title.trim().toLowerCase());
+    if (id && !ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
+
 // ── Image upload ─────────────────────────────────────────────────────────
 
 export interface ShopifyImageInput {
@@ -367,6 +412,8 @@ export interface CreateShopifyProductInput {
   finish: string;
   widthCm: number | null;
   lengthCm: number | null;
+  /** Real Shopify collection titles (from Review's AI classification, or hand-edited) — resolved to collection ids via listCollections/resolveCollectionIds below. Titles that don't match a real collection are silently dropped rather than erroring, same reasoning as resolveCategoryId's no-confident-match case. */
+  collections?: string[];
 }
 
 export interface PublishProductInput extends CreateShopifyProductInput {
@@ -441,10 +488,11 @@ function buildMetafields(input: CreateShopifyProductInput): { namespace: string;
  * https://shopify.dev/docs/api/admin-graphql/latest/mutations/productSet
  */
 async function createShopifyProduct(input: CreateShopifyProductInput): Promise<string> {
-  const [locationId, resourceUrls, categoryId] = await Promise.all([
+  const [locationId, resourceUrls, categoryId, collectionIds] = await Promise.all([
     getPrimaryLocationId(),
     Promise.all(input.images.map((image) => stageImageUpload(image))),
     resolveCategoryId(input.productType),
+    resolveCollectionIds(input.collections ?? []),
   ]);
 
   const files = input.images.map((image, i) => ({
@@ -486,6 +534,11 @@ async function createShopifyProduct(input: CreateShopifyProductInput): Promise<s
         // pipeline enough to skip that manual review step.
         status: "DRAFT",
         files,
+        // Omitted entirely (rather than sent as []) when nothing matched —
+        // an empty array is a valid "no collections" input too, but leaving
+        // the key out entirely is consistent with how categoryId above only
+        // appears when resolved.
+        ...(collectionIds.length > 0 ? { collections: collectionIds } : {}),
         // The single default option every variantless-options product gets —
         // see this function's doc comment for why this has to be spelled out
         // explicitly now instead of just omitted.

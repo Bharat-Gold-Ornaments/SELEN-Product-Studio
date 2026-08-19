@@ -105,6 +105,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
           tags: record.tags,
           seoTitle: record.seoTitle,
           metaDescription: record.metaDescription,
+          collections: record.collections,
         }
       : null;
 

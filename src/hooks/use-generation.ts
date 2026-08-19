@@ -69,13 +69,15 @@ export interface GenerationSession {
   copy: ProductCopy | null;
 }
 
-/** The four AI-generated copy fields for a product, once generated and/or saved. */
+/** The AI-generated copy fields for a product, once generated and/or saved. */
 export interface ProductCopy {
   title: string;
   description: string;
   tags: string[];
   seoTitle: string;
   metaDescription: string;
+  /** AI-classified (via lifestyle image + the store's live Shopify collections) or hand-edited collection names. */
+  collections: string[];
 }
 
 type CopyFieldResult<T> = { status: "success"; value: T } | { status: "error"; message: string };
@@ -86,6 +88,7 @@ export interface CopyGenerationResult {
   description: CopyFieldResult<string>;
   tags: CopyFieldResult<string[]>;
   seo: CopyFieldResult<{ seoTitle: string; metaDescription: string }>;
+  collections: CopyFieldResult<string[]>;
 }
 
 function sessionKey(productId: string) {
@@ -324,19 +327,33 @@ export function useRetryDriveUpload() {
 
 // ── Copy (Milestone 7) ──────────────────────────────────────────────────
 
+interface GenerateAllCopyInput {
+  productId: string;
+  variables: ImagePromptVariables;
+  /**
+   * `/api/drive-image/{fileId}` proxy URLs of whichever hero/lifestyle image
+   * currently exists for this product — sent so title/description reflect
+   * what the piece actually looks like (hero) and collection classification
+   * can see the styled shot (lifestyle). Optional since Review allows
+   * generating copy before any image is picked.
+   */
+  heroImageUrl?: string;
+  lifestyleImageUrl?: string;
+}
+
 /**
- * Runs the full title -> description/tags/SEO chain (see
+ * Runs the full title -> description/tags/seo/collections chain (see
  * services/anthropic-copy.ts). This is what the Review screen's
  * "Generate Copy" button calls — never automatic, matching how Drive retry
  * and image Regenerate are also user-triggered.
  */
 export function useGenerateAllCopy() {
   return useMutation({
-    mutationFn: async ({ productId, variables }: { productId: string; variables: ImagePromptVariables }) => {
+    mutationFn: async ({ productId, variables, heroImageUrl, lifestyleImageUrl }: GenerateAllCopyInput) => {
       const res = await fetch(`/api/products/${productId}/copy`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ field: "all", variables }),
+        body: JSON.stringify({ field: "all", variables, heroImageUrl, lifestyleImageUrl }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -350,20 +367,23 @@ export function useGenerateAllCopy() {
 
 interface RegenerateCopyFieldInput {
   productId: string;
-  field: "title" | "description" | "tags" | "seo";
+  field: "title" | "description" | "tags" | "seo" | "collections";
   variables: ImagePromptVariables;
-  /** The title currently on screen (approved or hand-edited) — required for every field but "title" itself. */
+  /** The title currently on screen (approved or hand-edited) — required for every field but "title"/"collections". */
   title?: string;
+  /** Same as GenerateAllCopyInput's — only "title" reads heroImageUrl and only "collections" reads lifestyleImageUrl, but both are harmless to send regardless of field. */
+  heroImageUrl?: string;
+  lifestyleImageUrl?: string;
 }
 
 /** Regenerates a single copy field on its own, reusing whatever title is currently on screen. */
 export function useRegenerateCopyField() {
   return useMutation({
-    mutationFn: async ({ productId, field, variables, title }: RegenerateCopyFieldInput) => {
+    mutationFn: async ({ productId, field, variables, title, heroImageUrl, lifestyleImageUrl }: RegenerateCopyFieldInput) => {
       const res = await fetch(`/api/products/${productId}/copy`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ field, variables, title }),
+        body: JSON.stringify({ field, variables, title, heroImageUrl, lifestyleImageUrl }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);

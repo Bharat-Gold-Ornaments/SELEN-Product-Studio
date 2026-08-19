@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { TagInput } from "@/components/create-product/tag-input";
 import {
   useGenerateAllCopy,
   useRegenerateCopyField,
@@ -15,13 +16,22 @@ import {
 } from "@/hooks/use-generation";
 import type { ImagePromptVariables } from "@/lib/generation-variables";
 
-type CopyField = "title" | "description" | "tags" | "seo";
+type CopyField = "title" | "description" | "tags" | "seo" | "collections";
 
 interface CopySectionProps {
   productId: string;
   variables: ImagePromptVariables;
   copy: ProductCopy | null;
   onCopyChange: (copy: ProductCopy) => void;
+  /**
+   * `/api/drive-image/{fileId}` proxy URLs of whichever hero/lifestyle image
+   * is currently picked on Review — sent along with every generate/
+   * regenerate call so title/description reflect the actual hero shot and
+   * collection classification can see the lifestyle shot. Either can be
+   * undefined if that category hasn't been generated/picked yet.
+   */
+  heroImageUrl?: string;
+  lifestyleImageUrl?: string;
 }
 
 /**
@@ -34,14 +44,14 @@ interface CopySectionProps {
  * screen (so editing the title by hand and then regenerating Description
  * picks up the edit, not the original AI title).
  */
-export function CopySection({ productId, variables, copy, onCopyChange }: CopySectionProps) {
+export function CopySection({ productId, variables, copy, onCopyChange, heroImageUrl, lifestyleImageUrl }: CopySectionProps) {
   const [regeneratingField, setRegeneratingField] = useState<CopyField | null>(null);
   const generateAll = useGenerateAllCopy();
   const regenerateField = useRegenerateCopyField();
 
   async function handleGenerateAll() {
     try {
-      const result = await generateAll.mutateAsync({ productId, variables });
+      const result = await generateAll.mutateAsync({ productId, variables, heroImageUrl, lifestyleImageUrl });
 
       if (result.title.status === "error") {
         toast.error(result.title.message);
@@ -54,12 +64,14 @@ export function CopySection({ productId, variables, copy, onCopyChange }: CopySe
         tags: result.tags.status === "success" ? result.tags.value : [],
         seoTitle: result.seo.status === "success" ? result.seo.value.seoTitle : "",
         metaDescription: result.seo.status === "success" ? result.seo.value.metaDescription : "",
+        collections: result.collections.status === "success" ? result.collections.value : [],
       };
       onCopyChange(next);
 
       if (result.description.status === "error") toast.error(`Description: ${result.description.message}`);
       if (result.tags.status === "error") toast.error(`Tags: ${result.tags.message}`);
       if (result.seo.status === "error") toast.error(`SEO: ${result.seo.message}`);
+      if (result.collections.status === "error") toast.error(`Collections: ${result.collections.message}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Copy generation failed.");
     }
@@ -74,6 +86,8 @@ export function CopySection({ productId, variables, copy, onCopyChange }: CopySe
         field,
         variables,
         title: copy.title,
+        heroImageUrl,
+        lifestyleImageUrl,
       });
 
       if (result.status === "error") {
@@ -87,6 +101,8 @@ export function CopySection({ productId, variables, copy, onCopyChange }: CopySe
         onCopyChange({ ...copy, description: result.value as string });
       } else if (field === "tags") {
         onCopyChange({ ...copy, tags: result.value as string[] });
+      } else if (field === "collections") {
+        onCopyChange({ ...copy, collections: result.value as string[] });
       } else {
         const seo = result.value as { seoTitle: string; metaDescription: string };
         onCopyChange({ ...copy, seoTitle: seo.seoTitle, metaDescription: seo.metaDescription });
@@ -175,6 +191,19 @@ export function CopySection({ productId, variables, copy, onCopyChange }: CopySe
               />
             </div>
           </div>
+        </FieldRow>
+
+        <FieldRow
+          label="Collections"
+          field="collections"
+          isRegenerating={regeneratingField === "collections"}
+          onRegenerate={handleRegenerateField}
+        >
+          <TagInput
+            value={copy.collections}
+            onChange={(next) => onCopyChange({ ...copy, collections: next })}
+            placeholder="AI-classified from the lifestyle photo"
+          />
         </FieldRow>
       </CardContent>
     </Card>

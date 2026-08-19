@@ -18,10 +18,25 @@ import {
   useRegenerateCategory,
   useRetryDriveUpload,
   useSaveCopy,
+  type CategoryGenerationResult,
   type GenerationSession,
   type ProductCopy,
 } from "@/hooks/use-generation";
 import type { ImageCategory } from "@/types/product";
+
+// Picks the first successfully-generated image for a category — used as a
+// fallback for CopySection's vision inputs when nothing's been explicitly
+// selected yet on Review. A plain `.find(...)?.imageUrls[0]` doesn't narrow
+// through TypeScript's union (CategoryGenerationResult's "error" variant has
+// no imageUrls), so the status check happens here instead.
+function firstSuccessfulImageUrl(results: CategoryGenerationResult[], category: ImageCategory): string | undefined {
+  for (const result of results) {
+    if (result.category === category && result.status === "success") {
+      return result.imageUrls[0];
+    }
+  }
+  return undefined;
+}
 
 export function ReviewClient({ productId }: { productId: string }) {
   const router = useRouter();
@@ -268,6 +283,8 @@ export function ReviewClient({ productId }: { productId: string }) {
         variables={session.variables}
         copy={session.copy}
         onCopyChange={handleCopyChange}
+        heroImageUrl={session.selected.hero ?? firstSuccessfulImageUrl(session.imageResults, "hero")}
+        lifestyleImageUrl={session.selected.lifestyle ?? firstSuccessfulImageUrl(session.imageResults, "lifestyle")}
       />
     </PageShell>
   );
