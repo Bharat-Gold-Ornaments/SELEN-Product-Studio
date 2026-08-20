@@ -16,10 +16,16 @@ const LEONARDO_API_BASE = "https://cloud.leonardo.ai/api/rest/v1";
 const LEONARDO_API_BASE_V2 = "https://cloud.leonardo.ai/api/rest/v2";
 const GPT_IMAGE_2_MODEL = "gpt-image-2";
 const FLUX_KONTEXT_PRO_MODEL = "flux-kontext-pro";
+// Leonardo's own native model (despite also living on the v2 endpoint,
+// unlike GPT Image 2/FLUX Kontext this isn't a third-party partner model) —
+// see createGenerationV2's doc comment for the two ways it's handled
+// differently from those two. Confirmed against
+// https://docs.leonardo.ai/docs/phoenix.
+const PHOENIX_MODEL = "phoenix-v1.0";
 // Any model string in here gets routed to the v2 flow instead of the
 // classic v1 one. Set LEONARDO_MODEL_ID to one of these exact strings to
 // opt in. Add new v2-only models here as they're integrated.
-const V2_MODELS = new Set<string>([GPT_IMAGE_2_MODEL, FLUX_KONTEXT_PRO_MODEL]);
+const V2_MODELS = new Set<string>([GPT_IMAGE_2_MODEL, FLUX_KONTEXT_PRO_MODEL, PHOENIX_MODEL]);
 const IMAGE_SIZE = { width: 1024, height: 1024 };
 // How strongly image-to-image generations should stick to the uploaded
 // reference photo (0 = ignore it, 1 = near-identical). Set high (not 1.0
@@ -290,34 +296,48 @@ function sanitizeNegativePromptForV2(negativePrompt: string): string | undefined
  * and published OpenAPI spec (docs.leonardo.ai/reference/creategeneration-1).
  *
  * Real feature losses versus the v1 models, inherent to these models on
- * Leonardo's platform, not a gap in this integration:
- *  - No negative prompt support on any v2 model seen so far — there's no
+ * Leonardo's platform, not a gap in this integration — except Phoenix,
+ * which is the one exception to both:
+ *  - No negative prompt support on GPT Image 2 or FLUX Kontext — there's no
  *    request field for it at all, so `params.negativePrompt` (when present)
  *    is instead appended to the end of `params.prompt` as `avoid: "..."`
- *    before it's sent, the only way to get that instruction in front of a
- *    v2 model.
+ *    before it's sent, the only way to get that instruction in front of
+ *    those two models. Phoenix, by contrast, has a real `negative_prompt`
+ *    field (confirmed against docs.leonardo.ai/docs/phoenix) and uses it
+ *    directly — sidesteps the moderation-risk reasoning behind
+ *    sanitizeNegativePromptForV2 entirely for this model, the same way v1's
+ *    dedicated field already does.
  *  - Reference-photo influence is a bucketed LOW/MID/HIGH strength
  *    (V2_IMAGE_REFERENCE_STRENGTH) rather than v1's continuous 0-1
  *    `init_strength` dial. GPT Image 2 goes a step further and ignores
  *    strength entirely — the model decides on its own.
  *
- * Unlike v1, these models accept multiple reference images in one request
- * (`guidances.image_reference` is an array) — every uploaded original
- * (front/side/worn) is sent, not just one, so the model sees the piece from
- * every angle that was actually photographed. Each still goes through the
- * same uploadReferenceImage() v1 /init-image flow — the returned image id
- * is a platform-wide id, not a v1-specific one, and both models' own guides
- * show exactly this pattern (an "UPLOADED" image id passed into
- * `guidances.image_reference`).
+ * Unlike v1, GPT Image 2 and FLUX Kontext accept multiple reference images
+ * in one request (`guidances.image_reference` is an array) — every uploaded
+ * original (front/side/worn) is sent, not just one, so the model sees the
+ * piece from every angle that was actually photographed. Phoenix instead
+ * takes exactly one reference image under a *differently named* field,
+ * `guidances.image_to_image` (docs.leonardo.ai/docs/phoenix) — sending it
+ * under `image_reference` like the other two would silently be ignored.
+ * Every reference image still goes through the same uploadReferenceImage()
+ * v1 /init-image flow regardless of which v2 model ends up using it — the
+ * returned image id is a platform-wide id, not a v1-specific one.
  */
 async function createGenerationV2(model: string, params: CreateGenerationParams): Promise<string> {
-  // See the doc comment above — this is the only way negative-prompt intent
-  // reaches a v2 model, since there's no dedicated field for it here. Run
-  // through sanitizeNegativePromptForV2 first — see its doc comment for why.
-  const safeNegativePrompt = params.negativePrompt ? sanitizeNegativePromptForV2(params.negativePrompt) : undefined;
+  // See the doc comment above — Phoenix has a real negative_prompt field
+  // and skips the avoid:-text-injection path (and its
+  // sanitizeNegativePromptForV2 sanitization, which exists only to reduce
+  // moderation risk from that injection) entirely.
+  const usesRealNegativePrompt = model === PHOENIX_MODEL;
+  const safeNegativePrompt =
+    !usesRealNegativePrompt && params.negativePrompt ? sanitizeNegativePromptForV2(params.negativePrompt) : undefined;
   const prompt = safeNegativePrompt ? `${params.prompt}\n\navoid: "${safeNegativePrompt}"` : params.prompt;
 
-  const imageIds = (params.initImageIds ?? []).slice(0, MAX_V2_REFERENCE_IMAGES);
+  // Phoenix's guidances.image_to_image takes exactly one image — see the
+  // doc comment above — everything else here allows up to
+  // MAX_V2_REFERENCE_IMAGES.
+  const imageIds = (params.initImageIds ?? []).slice(0, model === PHOENIX_MODEL ? 1 : MAX_V2_REFERENCE_IMAGES);
+  const referenceGuidanceKey = model === PHOENIX_MODEL ? "image_to_image" : "image_reference";
   const referenceGuidance =
     imageIds.length > 0
       ? imageIds.map((id) =>
@@ -343,7 +363,8 @@ async function createGenerationV2(model: string, params: CreateGenerationParams)
           height: IMAGE_SIZE.height,
           prompt_enhance: "OFF",
           ...(model === GPT_IMAGE_2_MODEL ? { quality: "MEDIUM" } : { style_ids: [PHOTOREAL_STYLE_ID] }),
-          ...(referenceGuidance ? { guidances: { image_reference: referenceGuidance } } : {}),
+          ...(usesRealNegativePrompt && params.negativePrompt ? { negative_prompt: params.negativePrompt } : {}),
+          ...(referenceGuidance ? { guidances: { [referenceGuidanceKey]: referenceGuidance } } : {}),
         },
       }),
     },

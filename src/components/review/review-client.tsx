@@ -46,8 +46,15 @@ export function ReviewClient({ productId }: { productId: string }) {
   const [session, setSession] = useState<GenerationSession | undefined>(() =>
     getGenerationSession(queryClient, productId)
   );
-  const [regeneratingCategory, setRegeneratingCategory] = useState<ImageCategory | null>(null);
-  const [uploadingCategory, setUploadingCategory] = useState<ImageCategory | null>(null);
+  // Sets, not a single category — each of Hero/Lifestyle/Closeup can be
+  // regenerating/uploading independently. A single shared value here used to
+  // mean clicking Regenerate on a second category while the first was still
+  // in flight would immediately clear the first card's loading state (and
+  // its `finally` block would later clear the second's), making the first
+  // regenerate look like it silently failed even though its request was
+  // still running server-side and its result still landed correctly.
+  const [regeneratingCategories, setRegeneratingCategories] = useState<Set<ImageCategory>>(() => new Set());
+  const [uploadingCategories, setUploadingCategories] = useState<Set<ImageCategory>>(() => new Set());
   const regenerate = useRegenerateCategory();
   const retryUpload = useRetryDriveUpload();
   const saveCopy = useSaveCopy();
@@ -114,6 +121,19 @@ export function ReviewClient({ productId }: { productId: string }) {
     );
   }
 
+  function addCategory(setter: typeof setRegeneratingCategories, category: ImageCategory) {
+    setter((prev) => new Set(prev).add(category));
+  }
+
+  function removeCategory(setter: typeof setRegeneratingCategories, category: ImageCategory) {
+    setter((prev) => {
+      if (!prev.has(category)) return prev;
+      const next = new Set(prev);
+      next.delete(category);
+      return next;
+    });
+  }
+
   function selectImage(category: ImageCategory, url: string) {
     setSession((prev) => {
       if (!prev) return prev;
@@ -125,7 +145,7 @@ export function ReviewClient({ productId }: { productId: string }) {
 
   async function handleRegenerate(category: ImageCategory) {
     if (!session) return;
-    setRegeneratingCategory(category);
+    addCategory(setRegeneratingCategories, category);
     try {
       // Resend every reference photo the initial generation used (front,
       // side, worn — whichever were actually provided) so the regenerated
@@ -169,12 +189,12 @@ export function ReviewClient({ productId }: { productId: string }) {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Regeneration failed.");
     } finally {
-      setRegeneratingCategory(null);
+      removeCategory(setRegeneratingCategories, category);
     }
   }
 
   async function handleUpload(category: ImageCategory, file: File) {
-    setUploadingCategory(category);
+    addCategory(setUploadingCategories, category);
     try {
       const outcome = await uploadCustomImage.mutateAsync({ productId, category, file });
       setSession((prev) => {
@@ -199,7 +219,7 @@ export function ReviewClient({ productId }: { productId: string }) {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Upload failed.");
     } finally {
-      setUploadingCategory(null);
+      removeCategory(setUploadingCategories, category);
     }
   }
 
@@ -338,10 +358,10 @@ export function ReviewClient({ productId }: { productId: string }) {
               selectedUrl={session.selected[category]}
               onSelect={(url) => selectImage(category, url)}
               onRegenerate={() => handleRegenerate(category)}
-              isRegenerating={regeneratingCategory === category}
+              isRegenerating={regeneratingCategories.has(category)}
               manualImageUrl={session.manualUploads[category]}
               onUpload={(file) => handleUpload(category, file)}
-              isUploading={uploadingCategory === category}
+              isUploading={uploadingCategories.has(category)}
               onRemoveUpload={() => handleRemoveUpload(category)}
             />
           );
