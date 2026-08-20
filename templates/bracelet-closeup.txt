@@ -30,8 +30,7 @@ Use a 100mm macro product photography look with controlled depth of field and pr
 
 Square 1:1 composition.
 
-## Negative Prompt
-
+--- NEGATIVE PROMPT ---
 More than one bracelet, two bracelets, duplicate bracelet, stacked bracelets, additional bracelet, bangle, watch, hand chain, altered or redesigned bracelet, incorrect shape, proportions, dimensions, circumference, width, thickness, altered chain structure, missing or extra links, altered charms, altered clasp, connector or attachment point, gemstone count, gemstone size, gemstone placement, incorrect {{finish}} finish, missing or extra components, distorted, stretched, compressed, flattened, warped, bent, melted, deformed jewellery.
 
 Floating bracelet, suspended bracelet, impossible chain curve, tangled chain, knotted chain, unrealistic contact shadows.

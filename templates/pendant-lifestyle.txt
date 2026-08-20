@@ -26,8 +26,7 @@ Luxury editorial fashion photography, premium boutique jewellery campaign, produ
 
 Square 1:1 composition.
 
-## Negative Prompt
-
+--- NEGATIVE PROMPT ---
 Altered or redesigned pendant, incorrect shape, proportions, dimensions, gemstone count, gemstone size, gemstone placement, altered metalwork, altered bail, loops, prongs, chain, links, chain thickness, chain length, incorrect {{finish}} finish, different pendant, duplicate pendant, extra pendant, oversized jewellery, missing stones, extra stones, distorted, warped, melted, deformed jewellery.
 
 Additional necklace, choker, layered necklace, extra chain, earrings, ear studs, ear cuffs, rings, bracelets, bangles, watches, anklets, body jewellery, or any other jewellery or accessory.

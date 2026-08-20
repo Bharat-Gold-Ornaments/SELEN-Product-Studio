@@ -20,16 +20,15 @@ The final image should feel like an elegant high-end jewellery campaign: clean, 
 
 Square 1:1 composition.
 
-## Negative Prompt
-
-Altered or redesigned ring, incorrect shape, incorrect proportions, incorrect dimensions, changed ring size appearance, altered band thickness, flattened band, oval band when originally circular, changed setting height, resized gemstones, missing or extra gemstones, incorrect stone placement, altered prongs, bezel or setting, altered shoulders, altered metalwork, incorrect {{finish}} finish, distorted, warped, bent, melted, deformed ring.
-
-Duplicate ring, extra ring, floating ring, unsupported ring, ring passing through stand, impossible geometry, incorrect perspective that changes the actual design.
-
-Hands, fingers, model, face, body, text, letters, logo, watermark, signature, brand mark, stamp, timestamp, string, thread, price tag, label, sticker, packaging, box, cluttered background, distracting props, excessive flowers, harsh shadows, dark lighting, blown highlights, excessive sparkle, unrealistic reflections, CGI, 3D render, cartoon, illustration, low detail, low resolution, blur on jewellery, noisy image, oversaturated colours, cropped or incomplete ring.
-
 ## Camera & Lighting
 
 85mm macro lens, f/2.8, ISO 100, soft diffused key light from approximately 45 degrees, controlled reflector fill, gentle overhead ambient fill, shallow depth of field, creamy bokeh, highly controlled jewellery reflections, luxury editorial product photography.
 
 The complete ring should remain visible and instantly readable as a ring, with the gemstone or defining front detail prominently presented without obscuring the band structure.
+
+--- NEGATIVE PROMPT ---
+Altered or redesigned ring, incorrect shape, incorrect proportions, incorrect dimensions, changed ring size appearance, altered band thickness, flattened band, oval band when originally circular, changed setting height, resized gemstones, missing or extra gemstones, incorrect stone placement, altered prongs, bezel or setting, altered shoulders, altered metalwork, incorrect {{finish}} finish, distorted, warped, bent, melted, deformed ring.
+
+Duplicate ring, extra ring, floating ring, unsupported ring, ring passing through stand, impossible geometry, incorrect perspective that changes the actual design.
+
+Hands, fingers, model, face, body, text, letters, logo, watermark, signature, brand mark, stamp, timestamp, string, thread, price tag, label, sticker, packaging, box, cluttered background, distracting props, excessive flowers, harsh shadows, dark lighting, blown highlights, excessive sparkle, unrealistic reflections, CGI, 3D render, cartoon, illustration, low detail, low resolution, blur on jewellery, noisy image, oversaturated colours, cropped or incomplete ring.

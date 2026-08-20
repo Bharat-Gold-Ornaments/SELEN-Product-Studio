@@ -67,6 +67,16 @@ export interface GenerationSession {
    * whenever the row already has a saved description.
    */
   copy: ProductCopy | null;
+  /**
+   * A manually-uploaded replacement photo per category — the Review
+   * screen's fallback for when AI generation doesn't produce an accurate
+   * result. Independent of `imageResults`/Regenerate: at most one manual
+   * photo per category, replaced (never appended to) by a new upload, and
+   * never cleared by Regenerate re-running the AI batch. See
+   * ReviewSection/review-client.tsx and api/products/[productId]/
+   * upload-image/route.ts.
+   */
+  manualUploads: Partial<Record<ImageCategory, string>>;
 }
 
 /** The AI-generated copy fields for a product, once generated and/or saved. */
@@ -227,6 +237,7 @@ export function useStartGeneration() {
         },
         poolPhotoIds: input.poolPhotoIds ?? {},
         copy: null,
+        manualUploads: {},
       };
       queryClient.setQueryData(sessionKey(data.productId), session);
     },
@@ -321,6 +332,53 @@ export function useRetryDriveUpload() {
         throw new Error(data?.error ?? "Upload failed.");
       }
       return (await res.json()) as { folders: ProductFolders | null; error: string | null };
+    },
+  });
+}
+
+// ── Manual photo upload (Review's fallback for inaccurate AI results) ──
+
+interface UploadCustomImageInput {
+  productId: string;
+  category: ImageCategory;
+  file: File;
+}
+
+/** Uploads a manual replacement photo for one category's Review slot — see api/products/[productId]/upload-image/route.ts. */
+export function useUploadCustomImage() {
+  return useMutation({
+    mutationFn: async ({ productId, category, file }: UploadCustomImageInput) => {
+      const formData = new FormData();
+      formData.append("category", category);
+      formData.append("file", file);
+
+      const res = await fetch(`/api/products/${productId}/upload-image`, { method: "POST", body: formData });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "Upload failed.");
+      }
+      return (await res.json()) as { imageUrl: string; driveFolders: ProductFolders };
+    },
+  });
+}
+
+interface RemoveCustomImageInput {
+  productId: string;
+  category: ImageCategory;
+}
+
+/** Clears a category's manual upload slot, deleting the file from Drive too. */
+export function useRemoveCustomImage() {
+  return useMutation({
+    mutationFn: async ({ productId, category }: RemoveCustomImageInput) => {
+      const res = await fetch(`/api/products/${productId}/upload-image?category=${category}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "Couldn't remove the uploaded photo.");
+      }
+      return (await res.json()) as { ok: true };
     },
   });
 }

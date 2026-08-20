@@ -18,8 +18,7 @@ The final image should feel refined, contemporary, minimal, elegant, and aspirat
 
 Square 1:1 composition.
 
-## Negative Prompt
-
+--- NEGATIVE PROMPT ---
 Altered or redesigned pendant, incorrect shape, proportions, dimensions, thickness, missing or extra components, resized gemstones, missing or extra gemstones, incorrect stone placement, altered metalwork, altered bail, loop or prongs, incorrect {{finish}} finish, changed texture, distorted, warped, melted, deformed jewellery.
 
 Added chain, necklace, string, thread, cord, ribbon, price tag, label, sticker, packaging, box, floating pendant, unsupported pendant, incorrect attachment, pendant passing through the stand.

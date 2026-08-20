@@ -26,8 +26,13 @@ Use a 100mm macro product photography look with sufficient depth of field to kee
 
 Square 1:1 composition.
 
-## Negative Prompt
+## Camera & Lighting
 
+100mm macro lens look, approximately f/8, ISO 100, tripod-style precision product composition, soft diffused key light from 45 degrees, subtle rim light to reveal depth and contours, controlled reflections, sufficient depth of field for detailed primary-product sharpness.
+
+The primary earring must clearly communicate front design, side profile, depth, thickness, stone setting, and fastening construction in one premium close-up image.
+
+--- NEGATIVE PROMPT ---
 Altered or redesigned earrings, incorrect shape, proportions, dimensions, thickness, curvature, gemstone count, gemstone size, gemstone placement, pearl size, altered metal frame, altered prongs, loops, hooks, posts, backs, butterfly backing, clasps, incorrect {{finish}} finish, missing or extra components, missing or extra gemstones, duplicate pair, mismatched earrings, distorted, warped, melted, deformed jewellery.
 
 Missing post, incorrect post position, missing butterfly backing where applicable, unattached backing, incorrectly attached closure, hidden fastening mechanism when naturally visible, invented fastening mechanism.
@@ -37,9 +42,3 @@ Floating jewellery, suspended jewellery, earrings standing unnaturally upright, 
 Model, ear, face, body, hands, worn jewellery, necklace, pendant, ring, bracelet, bangle, watch, text, logo, watermark, signature, price tag, label, packaging, jewellery box, excessive props, flowers, ribbons, fabric covering jewellery, cluttered background.
 
 CGI, 3D render, cartoon, illustration, unrealistic marble, harsh reflections, blown highlights, dark shadows, excessive sparkle, unrealistic materials, low detail, low resolution, blur on primary earring, cropped jewellery, incomplete pair.
-
-## Camera & Lighting
-
-100mm macro lens look, approximately f/8, ISO 100, tripod-style precision product composition, soft diffused key light from 45 degrees, subtle rim light to reveal depth and contours, controlled reflections, sufficient depth of field for detailed primary-product sharpness.
-
-The primary earring must clearly communicate front design, side profile, depth, thickness, stone setting, and fastening construction in one premium close-up image.

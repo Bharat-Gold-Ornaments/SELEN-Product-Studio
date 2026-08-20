@@ -24,8 +24,14 @@ Luxury editorial fashion photography, premium boutique jewellery campaign, refin
 
 Square 1:1 composition.
 
-## Negative Prompt
+## Camera & Composition
 
+85mm macro portrait lens look, approximately f/2.8, ISO 100, soft diffused side lighting, subtle fill, shallow depth of field, creamy bokeh, realistic luxury beauty photography.
+
+Both earrings may be visible naturally on both ears. The matching pair is the only jewellery worn by the model. The earrings must remain the immediate visual focal point.
+
+
+--- NEGATIVE PROMPT ---
 Altered or redesigned earrings, incorrect shape, proportions, dimensions, gemstone count, gemstone size, gemstone placement, metalwork, texture, thickness, prongs, loops, hooks, posts, backs, clasps, incorrect {{finish}} finish, different earrings, mismatched pair, missing earring, extra earring, duplicate earrings, asymmetrical pair when the original pair is symmetrical, oversized earrings, distorted, warped, melted, deformed jewellery.
 
 More than one earring in the same ear, extra piercings with jewellery, ear cuffs, studs in addition to the uploaded earrings.
@@ -36,8 +42,3 @@ No hair covering either earring or ear, no hands touching the earrings, no full 
 
 No text, letters, logo, watermark, signature, brand mark, CGI, 3D render, cartoon, illustration, distorted anatomy, unrealistic ears, unrealistic reflections, excessive sparkle, harsh lighting, excessive makeup, plastic skin, low detail, low resolution, blur on earrings, noisy image, cluttered background.
 
-## Camera & Composition
-
-85mm macro portrait lens look, approximately f/2.8, ISO 100, soft diffused side lighting, subtle fill, shallow depth of field, creamy bokeh, realistic luxury beauty photography.
-
-Both earrings may be visible naturally on both ears. The matching pair is the only jewellery worn by the model. The earrings must remain the immediate visual focal point.

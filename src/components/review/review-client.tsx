@@ -16,8 +16,10 @@ import {
   setGenerationSession,
   useProductReview,
   useRegenerateCategory,
+  useRemoveCustomImage,
   useRetryDriveUpload,
   useSaveCopy,
+  useUploadCustomImage,
   type CategoryGenerationResult,
   type GenerationSession,
   type ProductCopy,
@@ -45,9 +47,12 @@ export function ReviewClient({ productId }: { productId: string }) {
     getGenerationSession(queryClient, productId)
   );
   const [regeneratingCategory, setRegeneratingCategory] = useState<ImageCategory | null>(null);
+  const [uploadingCategory, setUploadingCategory] = useState<ImageCategory | null>(null);
   const regenerate = useRegenerateCategory();
   const retryUpload = useRetryDriveUpload();
   const saveCopy = useSaveCopy();
+  const uploadCustomImage = useUploadCustomImage();
+  const removeCustomImage = useRemoveCustomImage();
 
   // No in-memory session (fresh page load, refresh, or navigated here from
   // the Products list rather than straight from Generate) — reload this
@@ -64,12 +69,13 @@ export function ReviewClient({ productId }: { productId: string }) {
   // needs an image. A category left unpicked (or whose generation failed)
   // just doesn't get sent to Shopify later; see handleContinue below, where
   // an unselected category's link is naturally omitted rather than forced.
+  // `selected[category]` is only ever set to a real image URL (from an AI
+  // candidate or a manual upload), so checking it alone is enough — no need
+  // to separately require the AI batch to have succeeded, since a manual
+  // upload can carry a category on its own even when AI generation failed.
   const hasSelection = useMemo(() => {
     if (!session) return false;
-    return IMAGE_CATEGORIES.some((category) => {
-      const result = session.imageResults.find((r) => r.category === category);
-      return result?.status === "success" && Boolean(session.selected[category]);
-    });
+    return IMAGE_CATEGORIES.some((category) => Boolean(session.selected[category]));
   }, [session]);
 
   if (!session) {
@@ -144,7 +150,12 @@ export function ReviewClient({ productId }: { productId: string }) {
         if (!prev) return prev;
         const imageResults = prev.imageResults.map((r) => (r.category === category ? result : r));
         const selected = { ...prev.selected };
-        delete selected[category];
+        // Only clear the selection if it pointed at one of the AI candidates
+        // that Regenerate just replaced — if the manual upload was selected
+        // instead, it's untouched by Regenerate and should stay selected.
+        if (selected[category] !== prev.manualUploads[category]) {
+          delete selected[category];
+        }
         const next = { ...prev, imageResults, selected };
         setGenerationSession(queryClient, productId, next);
         return next;
@@ -158,6 +169,60 @@ export function ReviewClient({ productId }: { productId: string }) {
       toast.error(error instanceof Error ? error.message : "Regeneration failed.");
     } finally {
       setRegeneratingCategory(null);
+    }
+  }
+
+  async function handleUpload(category: ImageCategory, file: File) {
+    setUploadingCategory(category);
+    try {
+      const outcome = await uploadCustomImage.mutateAsync({ productId, category, file });
+      setSession((prev) => {
+        if (!prev) return prev;
+        // A manual upload always wins the slot it just filled — same
+        // "replace, don't append" rule Regenerate follows for the AI batch.
+        const next = {
+          ...prev,
+          manualUploads: { ...prev.manualUploads, [category]: outcome.imageUrl },
+          selected: { ...prev.selected, [category]: outcome.imageUrl },
+          // Drive folders may have just been created for the first time if
+          // this product's initial upload had failed earlier — pick up the
+          // real ids/clear the stale error so the rest of Review (and a
+          // later Continue) sees them too.
+          driveFolders: outcome.driveFolders,
+          driveError: null,
+        };
+        setGenerationSession(queryClient, productId, next);
+        return next;
+      });
+      toast.success(`${IMAGE_CATEGORY_LABELS[category]} photo uploaded`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Upload failed.");
+    } finally {
+      setUploadingCategory(null);
+    }
+  }
+
+  async function handleRemoveUpload(category: ImageCategory) {
+    if (!session) return;
+    const removedUrl = session.manualUploads[category];
+    try {
+      await removeCustomImage.mutateAsync({ productId, category });
+      setSession((prev) => {
+        if (!prev) return prev;
+        const manualUploads = { ...prev.manualUploads };
+        delete manualUploads[category];
+        const selected = { ...prev.selected };
+        // Only clear the selection if it was pointing at the upload that
+        // just got removed — leave an AI selection (or no selection) alone.
+        if (removedUrl && selected[category] === removedUrl) {
+          delete selected[category];
+        }
+        const next = { ...prev, manualUploads, selected };
+        setGenerationSession(queryClient, productId, next);
+        return next;
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn't remove the uploaded photo.");
     }
   }
 
@@ -273,6 +338,10 @@ export function ReviewClient({ productId }: { productId: string }) {
               onSelect={(url) => selectImage(category, url)}
               onRegenerate={() => handleRegenerate(category)}
               isRegenerating={regeneratingCategory === category}
+              manualImageUrl={session.manualUploads[category]}
+              onUpload={(file) => handleUpload(category, file)}
+              isUploading={uploadingCategory === category}
+              onRemoveUpload={() => handleRemoveUpload(category)}
             />
           );
         })}
@@ -283,8 +352,12 @@ export function ReviewClient({ productId }: { productId: string }) {
         variables={session.variables}
         copy={session.copy}
         onCopyChange={handleCopyChange}
-        heroImageUrl={session.selected.hero ?? firstSuccessfulImageUrl(session.imageResults, "hero")}
-        lifestyleImageUrl={session.selected.lifestyle ?? firstSuccessfulImageUrl(session.imageResults, "lifestyle")}
+        heroImageUrl={session.selected.hero ?? firstSuccessfulImageUrl(session.imageResults, "hero") ?? session.manualUploads.hero}
+        lifestyleImageUrl={
+          session.selected.lifestyle ??
+          firstSuccessfulImageUrl(session.imageResults, "lifestyle") ??
+          session.manualUploads.lifestyle
+        }
       />
     </PageShell>
   );

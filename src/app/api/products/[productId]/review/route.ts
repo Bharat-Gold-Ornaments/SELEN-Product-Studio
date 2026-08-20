@@ -10,6 +10,11 @@ import type { ImageCategory } from "@/types/product";
 // services/product-generation.ts: "hero.jpg" when a category only produced
 // one image, "hero-1.jpg"/"hero-2.jpg"/... when it produced several.
 const GENERATED_FILE_PATTERN = /^(hero|lifestyle|closeup)(?:-(\d+))?\.[a-zA-Z0-9]+$/;
+// Matches the manual-upload filenames api/products/[productId]/upload-image/
+// route.ts writes — deliberately distinct from GENERATED_FILE_PATTERN (no
+// numeric suffix) so the two never collide, and a manual upload is always
+// exactly one file per category, never grouped into the AI candidates list.
+const MANUAL_FILE_PATTERN = /^(hero|lifestyle|closeup)-manual\.[a-zA-Z0-9]+$/;
 
 function groupByCategory(files: { name: string; publicUrl: string }[]): Record<ImageCategory, string[]> {
   const grouped: Record<ImageCategory, { index: number; url: string }[]> = {
@@ -31,6 +36,16 @@ function groupByCategory(files: { name: string; publicUrl: string }[]): Record<I
     lifestyle: grouped.lifestyle.sort((a, b) => a.index - b.index).map((f) => f.url),
     closeup: grouped.closeup.sort((a, b) => a.index - b.index).map((f) => f.url),
   };
+}
+
+function groupManualUploads(files: { name: string; publicUrl: string }[]): Partial<Record<ImageCategory, string>> {
+  const manualUploads: Partial<Record<ImageCategory, string>> = {};
+  for (const file of files) {
+    const match = file.name.match(MANUAL_FILE_PATTERN);
+    if (!match) continue;
+    manualUploads[match[1] as ImageCategory] = file.publicUrl;
+  }
+  return manualUploads;
 }
 
 /**
@@ -69,6 +84,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
   }
 
   const grouped = groupByCategory(generatedFiles);
+  const manualUploads = groupManualUploads(generatedFiles);
   const imageResults: CategoryGenerationResult[] = IMAGE_CATEGORIES.map((category) => {
     const imageUrls = grouped[category];
     return imageUrls.length > 0
@@ -78,7 +94,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
 
   // Pre-select whichever image is already saved as this category's chosen
   // link in the sheet, so a reloaded product looks the same as it did right
-  // after the user picked it, not as if nothing had been chosen yet.
+  // after the user picked it, not as if nothing had been chosen yet. Checked
+  // against both the AI candidates and the manual upload — either is a
+  // valid source for what got saved.
   const linkByCategory: Record<ImageCategory, string> = {
     hero: record.heroImageLink,
     lifestyle: record.lifestyleImageLink,
@@ -87,7 +105,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
   const selected: Partial<Record<ImageCategory, string>> = {};
   for (const category of IMAGE_CATEGORIES) {
     const link = linkByCategory[category];
-    if (link && grouped[category].includes(link)) {
+    if (link && (grouped[category].includes(link) || manualUploads[category] === link)) {
       selected[category] = link;
     }
   }
@@ -119,5 +137,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
     variables: buildImagePromptVariablesFromRecord(record),
     selected,
     copy,
+    manualUploads,
   });
 }

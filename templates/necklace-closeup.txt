@@ -28,8 +28,7 @@ Use a 100mm macro product photography look with controlled shallow depth of fiel
 
 Square 1:1 composition.
 
-## Negative Prompt
-
+--- NEGATIVE PROMPT ---
 More than one necklace, duplicate necklace, layered necklaces, second chain, extra chain, altered or redesigned necklace, incorrect shape, proportions, dimensions, altered chain type, chain thickness, links, pendant elements, gemstone count, gemstone size, gemstone placement, altered clasp, hook, loop, connector, attachment point, incorrect {{finish}} finish, missing or extra components, distorted, tangled, knotted, stretched, warped, melted, deformed jewellery.
 
 Invented pendant, additional pendant, extra chain extension, incorrect connector.

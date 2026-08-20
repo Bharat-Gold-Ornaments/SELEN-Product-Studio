@@ -28,8 +28,7 @@ Luxury editorial jewellery photography, premium boutique campaign, product-first
 
 Square 1:1 composition.
 
-## Negative Prompt
-
+--- NEGATIVE PROMPT ---
 More than one bracelet, two bracelets, duplicate bracelet, matching bracelet on the other wrist, stacked bracelets, additional bracelet, bangle, watch, hand chain, ring, or any jewellery on either hand or wrist.
 
 Altered or redesigned bracelet, incorrect shape, proportions, dimensions, circumference, width, thickness, altered chain structure, missing or extra links, altered charms, altered clasp, altered connectors, gemstone count, gemstone size, gemstone placement, incorrect {{finish}} finish, oversized bracelet, distorted, stretched, compressed, flattened, warped, bent, melted, deformed jewellery.

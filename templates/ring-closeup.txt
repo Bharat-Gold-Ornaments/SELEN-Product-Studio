@@ -24,8 +24,13 @@ Use a 100mm macro product photography look with sufficient depth of field to kee
 
 Square 1:1 composition.
 
-## Negative Prompt
+## Camera & Lighting
 
+100mm macro lens look, approximately f/8, ISO 100, precision tripod-style product composition, soft diffused key light from 45 degrees, subtle rim light revealing the band and setting depth, controlled reflections, sufficient depth of field for complete ring sharpness.
+
+Exactly one ring must appear in the entire image. The close-up must clearly reveal its face, side profile, setting height, gallery, gemstone construction, and band thickness.
+
+--- NEGATIVE PROMPT ---
 More than one ring, two rings, duplicate ring, stacked rings, additional ring, altered or redesigned ring, incorrect shape, proportions, dimensions, band diameter, band thickness, band profile, setting height, gemstone count, gemstone size, gemstone placement, altered shoulders, gallery, prongs, bezel, setting, metalwork, incorrect {{finish}} finish, missing or extra components, distorted, warped, bent, stretched, flattened, melted, deformed ring.
 
 Incorrect band geometry, oval or flattened band when not present in the original, impossible ring perspective, floating ring, unsupported ring, unrealistic contact shadows.
@@ -34,8 +39,3 @@ Model, hand, fingers, wrist, ear, neck, face, body, worn jewellery, earrings, ne
 
 CGI, 3D render, cartoon, illustration, unrealistic marble, harsh reflections, blown highlights, dark shadows, excessive sparkle, unrealistic materials, low detail, low resolution, blur on ring, cropped or incomplete ring.
 
-## Camera & Lighting
-
-100mm macro lens look, approximately f/8, ISO 100, precision tripod-style product composition, soft diffused key light from 45 degrees, subtle rim light revealing the band and setting depth, controlled reflections, sufficient depth of field for complete ring sharpness.
-
-Exactly one ring must appear in the entire image. The close-up must clearly reveal its face, side profile, setting height, gallery, gemstone construction, and band thickness.

@@ -1,136 +1,141 @@
-# SELEN — Product-First Lifestyle Ring Prompt
+Create a premium luxury jewellery lifestyle campaign photograph featuring a female model naturally wearing the uploaded ring. The uploaded ring is the exact product reference and sole source of truth for the jewellery. {{referenceNote}}
 
-Create a premium luxury jewellery lifestyle campaign photograph where the uploaded ring is the exact product reference and the undisputed primary subject. The uploaded ring is the sole source of truth for the product. {{referenceNote}}
+The primary purpose is to showcase the exact uploaded ring being naturally worn in a refined lifestyle setting. **This is a jewellery-first image, not a fashion portrait. The woman provides lifestyle context; the ring is the protagonist.**
 
-**PRODUCT PRIORITY: THE RING IS THE MAIN SUBJECT OF THE IMAGE. The model is only present to naturally demonstrate how the ring is worn. Do not create a portrait where the person or hand becomes more visually important than the ring.**
+The ring has a {{finish}} finish, features {{stone}} stones, dimensions {{dimensions}}, and belongs to the {{collections}} collection. Use these details as supporting information, but always prioritize the uploaded reference image.
 
-The ring has a {{finish}} finish, features {{stone}} stones, has dimensions of {{dimensions}}, and belongs to the {{collections}} collection. Use these details to accurately understand the product, but always prioritize the uploaded reference image for its exact design and appearance.
+## PRODUCT ACCURACY — HIGHEST PRIORITY
 
-Preserve the exact ring design, silhouette, proportions, dimensions, band thickness, band profile, setting height, gemstone count, gemstone size and placement, metalwork, prongs, bezels, shoulders, gallery, texture, finish, and every other defining detail. Do not redesign, reinterpret, simplify, add, remove, enlarge, reduce, or modify any part of the ring.
+Reproduce the uploaded ring exactly. Preserve its exact silhouette, proportions, dimensions, band thickness and profile, setting height, gemstone count, size, shape and placement, prongs, bezels, shoulders, gallery, metalwork, texture, surface details, {{finish}} finish, and all defining construction details.
 
-## Primary Composition — Ring First
+Do not redesign, reinterpret, simplify, beautify, stylize, add, remove, resize, enlarge, reduce, or modify the ring in any way.
 
-Create an **extreme close-up macro lifestyle photograph of one hand wearing the uploaded ring**.
+The ring must look like the **exact uploaded product**, not a similar or inspired ring. If there is any conflict between model aesthetics and product accuracy, always prioritize the ring.
 
-The ring must be the immediate and unmistakable visual focal point, occupying approximately **35–50% of the frame**. It should appear large enough for the viewer to immediately inspect its design, gemstone setting, metalwork, proportions, thickness, and craftsmanship.
+## COMPOSITION — JEWELLERY FIRST
 
-**The ring must be the largest and sharpest visual point of interest in the composition.**
+Show only **part of the female model**, not a full portrait or full body.
 
-Frame tightly around the finger wearing the ring. Show only as much of the hand, wrist, and forearm as necessary to make the ring appear naturally worn. The hand is a supporting context for the product and must never dominate the composition.
+Use an elegant editorial crop showing combinations of:
 
-Do not compose this as a hand beauty photograph. Do not compose this as a portrait. Compose it as a **luxury macro jewellery advertisement with a naturally worn ring**.
+* shoulder
+* collarbone
+* neck
+* lower face
+* cheek or jawline
+* upper torso
+* partial hair
 
-The camera should be positioned close enough that the ring becomes visually dominant. Avoid wide framing.
+Her complete face does not need to be visible. Avoid making her face the visual subject.
 
-## Ring Placement & Visibility
+Position the ring-wearing hand naturally slightly closer to the camera, near the collarbone, shoulder, lower face, or neckline.
 
-Show exactly **one instance of the uploaded ring**, naturally worn on one finger.
+The composition should communicate:
 
-There must be **only one ring in the entire image**.
+**“A woman wearing this beautiful ring,” not “a beautiful woman wearing a ring.”**
 
-The ring should be oriented so its defining front design, {{stone}} stones, setting, metalwork, and primary craftsmanship face the camera clearly.
+Visual hierarchy:
 
-Use a natural relaxed hand pose, but specifically choose the finger and hand angle to maximize visibility of the ring.
+1. Exact uploaded ring — primary focal point
+2. Ring-wearing hand — supporting context
+3. Partial female figure — lifestyle context
+4. Clothing and environment — atmosphere
 
-Do not allow:
+The ring should receive approximately **20–30% of the visual attention** while remaining naturally proportioned. It must be large enough to clearly inspect its gemstones, setting, metalwork, band and craftsmanship.
 
-* fingers to cover the ring
-* the ring face to point away from the camera
-* the gemstone setting to be hidden
-* the hand to block the ring
-* extreme perspective distortion
-* the ring to appear tiny or distant
-* the ring to blend into the background
+## NATURAL WEARING
+
+Show exactly **one instance** of the uploaded ring, naturally worn on one finger.
+
+The hand should feel relaxed and naturally positioned, not deliberately displaying the jewellery.
+
+Suitable poses include the hand resting near the collarbone, shoulder, neckline, cheek, jawline, or softly against fabric.
+
+Avoid clenched fists, exaggerated finger spreading, fingers covering the ring, unnatural wrist angles, forced jewellery-display gestures, or extreme perspective.
 
 The complete ring must remain visible and comfortably inside the frame.
 
-## Focus & Depth of Field
+## MODEL & STYLING
 
-Focus precisely and exclusively on the ring.
+Show an elegant young adult woman with realistic skin, subtle natural makeup and naturally styled hair, but keep her visually secondary.
 
-The {{stone}} stones, setting, prongs, metalwork, and defining front design must be **tack-sharp with maximum micro-detail**.
+Use an elegant ivory, champagne, cream, beige or soft nude outfit. Prefer refined silk, satin, fine cotton, linen or other understated premium fabrics.
 
-The surrounding finger should be slightly softer than the ring.
+Use natural nails and a subtle neutral manicure.
 
-The rest of the hand should transition progressively into soft natural blur.
+**The uploaded ring is the only jewellery visible anywhere.**
 
-The wrist, forearm, model, clothing, and background should be secondary and significantly less sharp than the ring.
+No earrings, studs, ear cuffs, necklaces, pendants, bracelets, bangles, watches, anklets, body jewellery, hair jewellery or additional rings.
 
-**The viewer's eye must immediately land on the ring before noticing the hand or model.**
+## FOCUS & DEPTH OF FIELD
 
-Use an 85mm to 100mm macro photography look with shallow depth of field, while maintaining enough depth of field for the complete ring and its primary design to remain sharply readable.
+The ring must be the **sharpest and most detailed object in the image**.
 
-## Model & Styling
+Gemstones, setting, prongs, metalwork, texture, band and defining front design must be crisp and accurately detailed.
 
-A beautiful young woman in her mid-20s wears the ring naturally. Only minimal contextual portions of the model should be visible.
+The fingers surrounding the ring should remain naturally sharp. The partial model may be slightly softer if farther from the focal plane.
 
-Prefer showing only the hand and a small portion of the wrist or forearm.
+Use moderate shallow depth of field, not extreme macro blur.
 
-Do not show the full face or full body.
+Ring: tack sharp.
+Hand: naturally sharp.
+Model: clearly recognizable, slightly softer.
+Background: softly blurred.
 
-If any part of the face appears in the distant background, it must remain heavily blurred and visually insignificant. The image must never read as a portrait.
+Do not make the model excessively blurry.
 
-Use realistic glowing skin, natural texture, and a subtle neutral manicure. The nails should be elegant and understated, without excessive nail art or colours that compete with the ring.
+## LIGHTING & ENVIRONMENT
 
-The uploaded ring is the **only jewellery worn by the model**.
+Use soft diffused luxury editorial lighting designed primarily to reveal the ring accurately.
 
-Do not show any other jewellery anywhere on the model.
+Create realistic {{finish}} metal reflections and controlled {{stone}} gemstone brilliance. Clearly reveal gemstone arrangement, setting depth, prongs, metalwork, band curvature, texture and craftsmanship.
 
-No earrings, ear studs, ear cuffs, necklace, pendant, bracelet, bangle, watch, anklet, body jewellery, hair jewellery, or any other ring.
+Avoid excessive sparkle, harsh glare, blown highlights or reflections obscuring the product.
 
-## Lighting & Environment
+Use SELEN's palette of warm ivory, champagne, cream, beige and soft nude.
 
-Use soft diffused luxury lighting with a controlled warm side highlight to create realistic {{finish}} metal reflections and accurate {{stone}} gemstone brilliance.
+Create a subtle luxury environment using ivory flowers, delicate dried flowers, flowing silk, soft curtains or an elegant neutral interior. Keep the environment secondary and uncluttered.
 
-The lighting must be designed primarily to reveal the ring's:
+The image should feel like a **quiet luxury jewellery moment**, natural and intimate rather than a staged fashion portrait.
 
-* gemstone sparkle
-* setting depth
-* prong detail
-* metal texture
-* band curvature
-* finish
-* thickness
-* craftsmanship
-
-Avoid excessive sparkle, blown highlights, or reflections that hide product details.
-
-Create a softly blurred luxury environment using SELEN's signature warm ivory, champagne, cream, beige, and soft nude palette.
-
-Use subtle out-of-focus ivory flowers, delicate dried flowers, or flowing champagne satin only in the distant background where appropriate. These elements must remain heavily blurred and visually secondary.
-
-Luxury macro jewellery campaign photography, product-first composition, premium boutique advertisement, editorial ecommerce photography, photorealistic, ultra-detailed, realistic skin and metal materials, precise gemstone rendering, cinematic soft luxury lighting.
-
-**This is a product advertisement first and a lifestyle image second. The ring must visually dominate the image.**
+## CAMERA
 
 Square 1:1 composition.
+85mm lens look.
+Close-to-medium editorial distance.
+Approximately f/4–f/5.6, ISO 100.
 
-## Negative Prompt
+Position the ring hand slightly closer to the camera without making it unnaturally large. Preserve the true proportions of the ring.
 
-Hand portrait, beauty hand photography where the hand is the subject, person-focused composition, model-focused composition, portrait composition, full face, face in sharp focus, full body, zoomed-out composition.
+## FINAL PRIORITY
 
-Ring appearing small, distant, secondary, blurred, out of focus, hidden, partially covered by fingers, facing away from camera, near the edge of the frame, cropped, incomplete, visually insignificant.
+Create an intimate, refined, premium jewellery lifestyle photograph where the **ring is clearly the protagonist and the woman is only partial lifestyle context**.
 
-More than one ring, two rings, duplicate ring, stacked rings, wedding band in addition to the uploaded ring, matching ring on another finger, ring on another hand, multiple rings on different fingers.
+Priority:
 
-Altered or redesigned ring, incorrect shape, proportions, dimensions, band thickness, band profile, setting height, gemstone count, gemstone size, gemstone placement, altered shoulders, gallery, prongs, bezel, setting, metalwork, texture, incorrect {{finish}} finish, missing or extra components, oversized ring, distorted, warped, bent, stretched, flattened, melted, deformed ring.
+1. Exact uploaded ring design and construction
+2. Ring visibility, scale, sharpness and detail
+3. Natural wearing
+4. Jewellery-first composition
+5. Partial female lifestyle context
+6. Luxury styling and environment
 
-No earrings, ear studs, ear cuffs, necklace, pendant, bracelet, bangle, watch, anklet, body jewellery, hair jewellery, or any other jewellery anywhere on the model.
+The viewer should notice and inspect the ring first, then understand the woman wearing it.
 
-No fingers covering the ring, distorted fingers, extra fingers, missing fingers, fused fingers, unnatural joints, malformed hands, unrealistic anatomy, unrealistic nails.
+--- NEGATIVE PROMPT ---
 
-No hands touching, adjusting, holding, or removing the ring.
+Generic or substituted ring, similar ring, redesigned ring, altered ring, incorrect shape, proportions, dimensions, band thickness, band profile, setting height, gemstone count, gemstone size, gemstone shape, gemstone placement, altered prongs, bezels, shoulders, gallery, metalwork, texture, incorrect {{finish}}, missing or extra components, simplified ring, embellished ring, oversized ring, distorted, warped, bent, stretched, melted, deformed.
 
-No text, letters, logo, watermark, signature, brand mark, CGI, 3D render, cartoon, illustration, plastic skin, unrealistic reflections, excessive sparkle, harsh lighting, blown highlights, low detail, low resolution, blur on ring, noisy image, cluttered background.
+More than one ring, duplicate ring, stacked rings, wedding band, additional ring, ring on another finger or hand.
 
-## Camera & Lighting
+Tiny ring, distant ring, insignificant jewellery, blurred ring, hidden ring, cropped ring, incomplete ring, fingers covering ring, hair covering ring, clothing covering ring, ring turned away, extreme perspective.
 
-**100mm macro lens look, close camera distance, approximately f/3.2 to f/4, ISO 100.**
+Full-body model, full portrait, model-centric composition, face-centric portrait, beauty portrait, glamour portrait, excessive makeup, dramatic eye contact, fashion portrait where jewellery is secondary.
 
-Focus point locked precisely on the ring's primary design and {{stone}} stones.
+Isolated hand photograph, hand-only image, extreme macro, excessive background blur, ring sharp while model is completely unrecognizable.
 
-Soft diffused key light from approximately 45 degrees, subtle controlled fill, gentle rim light only where needed to reveal the ring's depth and band curvature.
+Earrings, studs, ear cuffs, necklace, pendant, bracelet, bangle, watch, anklet, body jewellery, hair jewellery, additional jewellery.
 
-The ring must remain the sharpest object in the entire image, with the hand progressively softer and the environment heavily blurred.
+Extra fingers, missing fingers, fused fingers, distorted hand, malformed fingers, unrealistic nails, unnatural wrist, clenched fist, exaggerated finger spreading, unnatural pose.
 
-**Final composition rule: Before generating the image, prioritize visual hierarchy as follows — 1. Uploaded ring, 2. Ring details and gemstones, 3. Finger wearing the ring, 4. Hand, 5. Model context, 6. Background. Nothing may visually compete with the uploaded ring.**
+Text, logo, watermark, signature, CGI, 3D render, cartoon, illustration, plastic skin, excessive sparkle, harsh lighting, blown highlights, low detail, low resolution, noisy image, cluttered background.

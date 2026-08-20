@@ -26,8 +26,7 @@ Use a 100mm macro product photography look with sufficient depth of field to kee
 
 Square 1:1 composition.
 
-## Negative Prompt
-
+--- NEGATIVE PROMPT ---
 More than one pendant, duplicate pendant, altered or redesigned pendant, incorrect shape, proportions, dimensions, thickness, gemstone count, gemstone size, gemstone placement, altered metalwork, altered bail, loops, attachment points, prongs, settings, back construction, incorrect {{finish}} finish, missing or extra components, distorted, warped, melted, deformed jewellery.
 
 Added chain when not present in the uploaded product, incorrect chain, extra chain, altered chain links, altered chain thickness, altered attachment.

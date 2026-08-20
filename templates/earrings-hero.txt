@@ -18,16 +18,16 @@ The final image should feel like a premium contemporary jewellery campaign: refi
 
 Square 1:1 composition.
 
-## Negative Prompt
+## Camera & Lighting
 
+85mm macro lens, f/2.8, ISO 100, soft diffused key light from approximately 45 degrees, subtle reflector for gentle fill, soft overhead ambient fill, shallow depth of field, creamy bokeh, realistic luxury product lighting.
+
+The earrings should occupy approximately 45% of the image height, with the complete T-bar stand visible but clearly secondary, ensuring the earrings are the immediate focal point.
+
+--- NEGATIVE PROMPT ---
 Altered or redesigned earrings, incorrect shape, incorrect proportions, incorrect dimensions, different pair, mismatched earrings, asymmetrical pair when the original is symmetrical, duplicate earrings, missing earring, extra earring, missing or extra components, resized gemstones, missing or extra gemstones, incorrect stone placement, altered metalwork, incorrect {{finish}} finish, changed hooks, posts, backs, loops, clasps, prongs, thickness, distorted, warped, melted, deformed metal.
 
 Floating earrings, unsupported earrings, incorrectly attached earrings, earrings passing through the stand, incorrect hanging orientation.
 
 Hands, model, face, body, ears, text, letters, logo, watermark, signature, brand mark, stamp, timestamp, string, thread, cord, price tag, label, sticker, packaging, box, cluttered background, distracting props, excessive flowers, harsh shadows, dark lighting, blown highlights, excessive sparkle, unrealistic reflections, CGI, 3D render, cartoon, illustration, low detail, low resolution, blur on jewellery, noisy image, oversaturated colours, cropped jewellery, incomplete earrings, incomplete stand.
 
-## Camera & Lighting
-
-85mm macro lens, f/2.8, ISO 100, soft diffused key light from approximately 45 degrees, subtle reflector for gentle fill, soft overhead ambient fill, shallow depth of field, creamy bokeh, realistic luxury product lighting.
-
-The earrings should occupy approximately 45% of the image height, with the complete T-bar stand visible but clearly secondary, ensuring the earrings are the immediate focal point.

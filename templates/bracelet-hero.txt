@@ -20,8 +20,7 @@ The final image should feel sophisticated, clean, contemporary, warm, and aspira
 
 Square 1:1 composition.
 
-## Negative Prompt
-
+--- NEGATIVE PROMPT ---
 Altered or redesigned bracelet, incorrect shape, proportions, dimensions, circumference, width or thickness, changed chain structure, missing or extra links, resized gemstones, missing or extra gemstones, incorrect stone placement, altered charms, altered clasp, altered connector, altered metalwork, incorrect {{finish}} finish, distorted, stretched, compressed, flattened, warped, bent, melted, deformed bracelet.
 
 Duplicate bracelet, extra jewellery, floating bracelet, unsupported bracelet, bracelet passing through the stand, impossible chain curve, tangled chain, knotted bracelet, incomplete or cropped bracelet.
