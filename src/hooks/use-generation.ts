@@ -280,6 +280,7 @@ interface RegenerateInput {
 export function useRegenerateCategory() {
   return useMutation({
     mutationFn: async ({
+      productId,
       category,
       productType,
       variables,
@@ -290,7 +291,7 @@ export function useRegenerateCategory() {
       const formData = new FormData();
       formData.append(
         "meta",
-        JSON.stringify({ category, productType, variables, poolPhotoIds, generatedFolderId })
+        JSON.stringify({ productId, category, productType, variables, poolPhotoIds, generatedFolderId })
       );
       // Every photo is appended under the same key — FormData supports
       // repeated keys natively, and the API route reads them all back with

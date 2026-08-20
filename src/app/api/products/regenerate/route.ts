@@ -11,6 +11,11 @@ import type { ProductType } from "@/types/product";
 export const maxDuration = 180;
 
 const metaSchema = z.object({
+  // Only used for tagging this regenerate's Langfuse observability trace
+  // (see services/observability.ts) so it's filterable by product — never
+  // looked up or written anywhere. Optional so an older client that hasn't
+  // been redeployed yet doesn't fail validation.
+  productId: z.string().optional(),
   category: z.enum(IMAGE_CATEGORIES),
   // Picks which product type's own Hero/Lifestyle/Closeup prompt to use —
   // each product type has its own independently-editable template now (see
@@ -90,7 +95,8 @@ export async function POST(request: Request) {
     meta.category,
     meta.variables,
     referenceImages,
-    meta.generatedFolderId ?? null
+    meta.generatedFolderId ?? null,
+    meta.productId
   );
   return NextResponse.json({ result });
 }

@@ -2,6 +2,7 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { requireEnv, optionalEnv } from "@/lib/env";
 import { readTemplate, renderTemplate } from "@/services/templates";
+import { traceGeneration, imageDataUri, startActiveObservation } from "@/services/observability";
 import type { ImagePromptVariables } from "@/lib/generation-variables";
 
 // ── Config ───────────────────────────────────────────────────────────────
@@ -50,29 +51,48 @@ export interface VisionImage {
 }
 
 async function complete(model: string, prompt: string, maxTokens: number, image?: VisionImage): Promise<string> {
-  const client = getClient();
-  const content: Anthropic.MessageParam["content"] = image
-    ? [
-        { type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } },
-        { type: "text", text: prompt },
-      ]
-    : prompt;
-
-  const response = await client.messages.create({
+  const { text } = await traceGeneration({
+    name: "anthropic.complete",
     model,
-    max_tokens: maxTokens,
-    messages: [{ role: "user", content }],
+    input: {
+      prompt,
+      maxTokens,
+      // See imageDataUri's doc comment — Langfuse's span processor detects
+      // and uploads this as real media, so the exact reference photo sent
+      // (if any) is inspectable in the Langfuse UI, not just its byte count.
+      image: image ? imageDataUri(image.mediaType, image.data) : undefined,
+    },
+    run: async () => {
+      const client = getClient();
+      const content: Anthropic.MessageParam["content"] = image
+        ? [
+            { type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } },
+            { type: "text", text: prompt },
+          ]
+        : prompt;
+
+      const response = await client.messages.create({
+        model,
+        max_tokens: maxTokens,
+        messages: [{ role: "user", content }],
+      });
+
+      const text = response.content
+        .filter((block): block is Anthropic.TextBlock => block.type === "text")
+        .map((block) => block.text)
+        .join("")
+        .trim();
+
+      if (!text) {
+        throw new Error(`Claude (${model}) returned an empty response.`);
+      }
+      return { text, usage: response.usage };
+    },
+    toUpdate: ({ text, usage }) => ({
+      output: { text },
+      usageDetails: { input: usage.input_tokens, output: usage.output_tokens },
+    }),
   });
-
-  const text = response.content
-    .filter((block): block is Anthropic.TextBlock => block.type === "text")
-    .map((block) => block.text)
-    .join("")
-    .trim();
-
-  if (!text) {
-    throw new Error(`Claude (${model}) returned an empty response.`);
-  }
   return text;
 }
 
@@ -278,6 +298,16 @@ export async function generateCopyField(
 export async function generateAllCopy(
   variables: ImagePromptVariables,
   context: CopyGenerationContext = {}
+): Promise<CopyGenerationResult> {
+  return startActiveObservation("anthropic.generateAllCopy", (span) => {
+    span.update({ input: { productType: variables.productType } });
+    return generateAllCopyFields(variables, context);
+  });
+}
+
+async function generateAllCopyFields(
+  variables: ImagePromptVariables,
+  context: CopyGenerationContext
 ): Promise<CopyGenerationResult> {
   let title: string;
   try {

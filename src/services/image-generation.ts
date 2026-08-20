@@ -23,18 +23,20 @@ export async function generateAllImages(
   productType: ProductType,
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[],
-  categories?: ImageCategory[]
+  categories?: ImageCategory[],
+  productId?: string
 ): Promise<CategoryGenerationResult[]> {
   const provider = await activeProvider();
-  return provider.generateAllImages(productType, variables, referenceImages, categories);
+  return provider.generateAllImages(productType, variables, referenceImages, categories, productId);
 }
 
 export async function generateCategoryImages(
   productType: ProductType,
   category: ImageCategory,
   variables: ImagePromptVariables,
-  referenceImages?: ReferenceImage[]
+  referenceImages?: ReferenceImage[],
+  productId?: string
 ): Promise<string[]> {
   const provider = await activeProvider();
-  return provider.generateCategoryImages(productType, category, variables, referenceImages);
+  return provider.generateCategoryImages(productType, category, variables, referenceImages, productId);
 }

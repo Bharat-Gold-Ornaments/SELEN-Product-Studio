@@ -3,6 +3,7 @@ import { requireEnv, optionalEnv } from "@/lib/env";
 import { readTemplate, renderTemplate } from "@/services/templates";
 import { readAppSettings } from "@/services/app-settings";
 import { imageTemplateId } from "@/lib/template-categories";
+import { traceGeneration, imageDataUri, startActiveObservation } from "@/services/observability";
 import type { ImageCategory, ProductType } from "@/types/product";
 import type { ImagePromptVariables, ReferenceImage, CategoryGenerationResult } from "@/services/leonardo";
 
@@ -202,6 +203,32 @@ async function pollTask(taskId: string): Promise<string[]> {
 const REFERENCE_NOTE =
   "Use the uploaded reference photos as the exact product reference — keep the design, proportions, gemstones, and finish unchanged.";
 
+// Body/person-related negative-prompt clauses get stripped before folding
+// into the prompt text as `avoid: "..."` (see buildPrompt below) — every
+// model Kie fronts here has no dedicated negative-prompt field (same
+// limitation as Leonardo's v2 models, see leonardo.ts's identical
+// V2_RISKY_NEGATIVE_TERMS), and GPT Image 2's own content moderation scans
+// that folded-in text like any other prompt content. It doesn't parse
+// "avoid"/"no X" as safe negation — a clause naming hands, a model, a face,
+// ears, etc. purely to *exclude* them still reads as human/body-related
+// content and gets the whole generation flagged, which is exactly what was
+// happening across every earrings category (Hero/Lifestyle/Closeup all have
+// this kind of clause in their templates) once KIE_MODEL_ID pointed at
+// gpt-image-2. Every other kind of exclusion (altered gemstones, CGI, low
+// detail, cluttered background, etc.) is unaffected and stays in.
+// Word-boundary matching so "earring(s)" — the actual product — is never
+// caught by the "ear" term.
+const RISKY_NEGATIVE_TERMS = ["hand", "hands", "model", "face", "body", "ear", "ears", "hair", "skin", "person", "human"];
+const RISKY_TERM_PATTERN = new RegExp(`\\b(${RISKY_NEGATIVE_TERMS.join("|")})\\b`, "i");
+
+function sanitizeNegativePrompt(negativePrompt: string): string | undefined {
+  const safeClauses = negativePrompt
+    .split(/[,.\n]+/)
+    .map((clause) => clause.trim())
+    .filter((clause) => clause.length > 0 && !RISKY_TERM_PATTERN.test(clause));
+  return safeClauses.length > 0 ? safeClauses.join(", ") : undefined;
+}
+
 async function buildPrompt(
   productType: ProductType,
   category: ImageCategory,
@@ -213,7 +240,8 @@ async function buildPrompt(
 
   const renderVars = { ...variables, referenceNote: hasReference ? REFERENCE_NOTE : "" };
   const prompt = renderTemplate(positiveRaw.trim(), renderVars);
-  const negativePrompt = negativeRaw?.trim() ? renderTemplate(negativeRaw.trim(), renderVars) : undefined;
+  const negativePromptRaw = negativeRaw?.trim() ? renderTemplate(negativeRaw.trim(), renderVars) : undefined;
+  const negativePrompt = negativePromptRaw ? sanitizeNegativePrompt(negativePromptRaw) : undefined;
 
   return negativePrompt ? `${prompt}\n\navoid: "${negativePrompt}"` : prompt;
 }
@@ -231,7 +259,8 @@ async function generateForCategory(
   category: ImageCategory,
   variables: ImagePromptVariables,
   numImages: number,
-  referenceImages?: ReferenceImage[]
+  referenceImages?: ReferenceImage[],
+  productId?: string
 ): Promise<string[]> {
   const hasReference = Boolean(referenceImages && referenceImages.length > 0);
   const prompt = await buildPrompt(productType, category, variables, hasReference);
@@ -239,28 +268,50 @@ async function generateForCategory(
     ? await Promise.all(referenceImages!.map((image) => uploadReferenceImage(image)))
     : undefined;
 
-  const results = await Promise.all(
-    Array.from({ length: numImages }, async () => {
-      const taskId = await createTask({ prompt, inputUrls });
-      return pollTask(taskId);
-    })
-  );
-  return results.flat();
+  return traceGeneration({
+    name: `kie.${category}`,
+    model: kieModel(hasReference),
+    input: {
+      prompt,
+      numImages,
+      referenceImages: referenceImages?.map((image) => imageDataUri(image.mimeType, image.buffer.toString("base64"))),
+    },
+    metadata: { productId, productType, category, provider: "kie" },
+    run: async () => {
+      const results = await Promise.all(
+        Array.from({ length: numImages }, async () => {
+          const taskId = await createTask({ prompt, inputUrls });
+          return pollTask(taskId);
+        })
+      );
+      return results.flat();
+    },
+    toUpdate: (imageUrls) => ({ output: { imageUrls } }),
+  });
 }
 
 export async function generateHero(
   productType: ProductType,
   variables: ImagePromptVariables,
-  referenceImages?: ReferenceImage[]
+  referenceImages?: ReferenceImage[],
+  productId?: string
 ): Promise<string[]> {
   const settings = await readAppSettings();
-  return generateForCategory(productType, "hero", variables, settings.generationCounts.hero, referenceImages);
+  return generateForCategory(
+    productType,
+    "hero",
+    variables,
+    settings.generationCounts.hero,
+    referenceImages,
+    productId
+  );
 }
 
 export async function generateLifestyle(
   productType: ProductType,
   variables: ImagePromptVariables,
-  referenceImages?: ReferenceImage[]
+  referenceImages?: ReferenceImage[],
+  productId?: string
 ): Promise<string[]> {
   const settings = await readAppSettings();
   return generateForCategory(
@@ -268,17 +319,26 @@ export async function generateLifestyle(
     "lifestyle",
     variables,
     settings.generationCounts.lifestyle,
-    referenceImages
+    referenceImages,
+    productId
   );
 }
 
 export async function generateCloseup(
   productType: ProductType,
   variables: ImagePromptVariables,
-  referenceImages?: ReferenceImage[]
+  referenceImages?: ReferenceImage[],
+  productId?: string
 ): Promise<string[]> {
   const settings = await readAppSettings();
-  return generateForCategory(productType, "closeup", variables, settings.generationCounts.closeup, referenceImages);
+  return generateForCategory(
+    productType,
+    "closeup",
+    variables,
+    settings.generationCounts.closeup,
+    referenceImages,
+    productId
+  );
 }
 
 // ── Orchestration ────────────────────────────────────────────────────────
@@ -293,7 +353,8 @@ const GENERATORS: Record<
   (
     productType: ProductType,
     variables: ImagePromptVariables,
-    referenceImages?: ReferenceImage[]
+    referenceImages?: ReferenceImage[],
+    productId?: string
   ) => Promise<string[]>
 > = {
   hero: generateHero,
@@ -305,24 +366,31 @@ export async function generateAllImages(
   productType: ProductType,
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[],
-  categories?: ImageCategory[]
+  categories?: ImageCategory[],
+  productId?: string
 ): Promise<CategoryGenerationResult[]> {
   const requested =
     categories && categories.length > 0 ? categories : (Object.keys(GENERATORS) as ImageCategory[]);
-  const settled = await Promise.allSettled(
-    requested.map((category) => GENERATORS[category](productType, variables, referenceImages))
-  );
 
-  return settled.map((result, index) => {
-    const category = requested[index];
-    if (result.status === "fulfilled") {
-      return { category, status: "success", imageUrls: result.value };
-    }
-    return {
-      category,
-      status: "error",
-      message: result.reason instanceof Error ? result.reason.message : "Image generation failed.",
-    };
+  // Groups every category's generation under one parent trace in Langfuse —
+  // see leonardo.ts's generateAllImages for the identical reasoning.
+  return startActiveObservation("kie.generateAllImages", async (span): Promise<CategoryGenerationResult[]> => {
+    span.update({ input: { productId, productType, categories: requested } });
+    const settled = await Promise.allSettled(
+      requested.map((category) => GENERATORS[category](productType, variables, referenceImages, productId))
+    );
+
+    return settled.map((result, index) => {
+      const category = requested[index];
+      if (result.status === "fulfilled") {
+        return { category, status: "success", imageUrls: result.value };
+      }
+      return {
+        category,
+        status: "error",
+        message: result.reason instanceof Error ? result.reason.message : "Image generation failed.",
+      };
+    });
   });
 }
 
@@ -330,7 +398,8 @@ export async function generateCategoryImages(
   productType: ProductType,
   category: ImageCategory,
   variables: ImagePromptVariables,
-  referenceImages?: ReferenceImage[]
+  referenceImages?: ReferenceImage[],
+  productId?: string
 ): Promise<string[]> {
-  return GENERATORS[category](productType, variables, referenceImages);
+  return GENERATORS[category](productType, variables, referenceImages, productId);
 }

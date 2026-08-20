@@ -151,7 +151,7 @@ export async function runInitialGeneration(
   const referenceImages = pickReferenceImages(photos);
   const [driveOutcome, rawImageResults] = await Promise.all([
     uploadOriginalsToDrive(productType, productId, photos),
-    generateAllImages(productType, variables, referenceImages, categories),
+    generateAllImages(productType, variables, referenceImages, categories, productId),
   ]);
 
   const imageResults = driveOutcome.folders
@@ -180,10 +180,11 @@ export async function regenerateCategory(
   category: ImageCategory,
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[],
-  generatedFolderId?: string | null
+  generatedFolderId?: string | null,
+  productId?: string
 ): Promise<CategoryGenerationResult> {
   try {
-    const imageUrls = await generateCategoryImages(productType, category, variables, referenceImages);
+    const imageUrls = await generateCategoryImages(productType, category, variables, referenceImages, productId);
     const result: CategoryGenerationResult = { category, status: "success", imageUrls };
     if (generatedFolderId) {
       const [saved] = await saveGeneratedImagesToDrive(generatedFolderId, [result]);
