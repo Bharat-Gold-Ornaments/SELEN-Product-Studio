@@ -275,6 +275,16 @@ interface RegenerateInput {
    * image just isn't saved to Drive, same as the initial batch in that case.
    */
   generatedFolderId?: string | null;
+  /**
+   * The product's existing Drive "originals" folder id (from the session's
+   * driveFolders) — lets the server recover front/side/worn straight from
+   * Drive when referencePhotos and poolPhotoIds are both empty, which is
+   * the normal case after a page refresh or opening Review from the
+   * Products list rather than straight from Generate (neither survives a
+   * reload — see GenerationSession's doc comment above). Without this, a
+   * reloaded product's Regenerate silently ran as pure text-to-image.
+   */
+  originalsFolderId?: string | null;
 }
 
 export function useRegenerateCategory() {
@@ -287,11 +297,20 @@ export function useRegenerateCategory() {
       referencePhotos,
       poolPhotoIds,
       generatedFolderId,
+      originalsFolderId,
     }: RegenerateInput) => {
       const formData = new FormData();
       formData.append(
         "meta",
-        JSON.stringify({ productId, category, productType, variables, poolPhotoIds, generatedFolderId })
+        JSON.stringify({
+          productId,
+          category,
+          productType,
+          variables,
+          poolPhotoIds,
+          generatedFolderId,
+          originalsFolderId,
+        })
       );
       // Every photo is appended under the same key — FormData supports
       // repeated keys natively, and the API route reads them all back with

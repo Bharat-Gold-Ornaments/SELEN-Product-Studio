@@ -145,6 +145,7 @@ export function ReviewClient({ productId }: { productId: string }) {
         referencePhotos,
         poolPhotoIds: session.poolPhotoIds,
         generatedFolderId: session.driveFolders?.generatedFolderId ?? null,
+        originalsFolderId: session.driveFolders?.originalsFolderId ?? null,
       });
       setSession((prev) => {
         if (!prev) return prev;

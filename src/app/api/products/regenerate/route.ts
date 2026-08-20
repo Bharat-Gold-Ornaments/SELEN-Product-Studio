@@ -2,8 +2,14 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { IMAGE_CATEGORIES } from "@/lib/constants";
 import { regenerateCategory } from "@/services/product-generation";
-import { downloadFile } from "@/services/google-drive";
+import { downloadFile, listFiles, driveFileIdFromImageProxyUrl } from "@/services/google-drive";
 import type { ProductType } from "@/types/product";
+
+// Matches the file names uploadOriginals writes in
+// services/product-generation.ts: "front.jpg" / "side.jpg" / "worn.jpg" —
+// always a literal ".jpg" extension regardless of the original upload's real
+// mime type (see uploadOriginals's uploadOriginal call).
+const ORIGINAL_PHOTO_FILENAMES = { front: "front.jpg", side: "side.jpg", worn: "worn.jpg" } as const;
 
 // Matches generate/route.ts's maxDuration — a regenerate is a single
 // category's worth of the same generation flow, so it needs the same
@@ -45,6 +51,16 @@ const metaSchema = z.object({
   // no folder to save into; the regenerated image still works, it just
   // isn't persisted to Drive in that case (same as the initial batch).
   generatedFolderId: z.string().nullable().optional(),
+  // The product's Drive "originals" folder id — sent so Regenerate can
+  // recover the original front/side/worn reference photos from Drive when
+  // neither a local File nor a poolPhotoIds entry is available for them
+  // (see the fallback below). This is the common case: originalPhotos and
+  // poolPhotoIds are both in-memory-only client state that's lost on a
+  // page refresh or a fresh visit to Review from the Products list (see
+  // GenerationSession's doc comment in hooks/use-generation.ts) — without
+  // this fallback, Regenerate after a reload silently ran as pure
+  // text-to-image, no reference photo at all.
+  originalsFolderId: z.string().nullable().optional(),
 });
 
 /**
@@ -88,7 +104,34 @@ export async function POST(request: Request) {
     })
   );
 
-  const referenceImages = [...localReferenceImages, ...poolReferenceImages];
+  // Fallback only when the client sent nothing at all for image-to-image
+  // reference — a same-tab regenerate right after Generate still has real
+  // originalPhotos/poolPhotoIds in memory and should keep using those as
+  // before; hitting Drive here too would be redundant. See
+  // originalsFolderId's schema comment above for when this actually fires.
+  let driveOriginalImages: { buffer: Buffer; mimeType: string }[] = [];
+  if (localReferenceImages.length === 0 && poolReferenceImages.length === 0 && meta.originalsFolderId) {
+    try {
+      const files = await listFiles(meta.originalsFolderId);
+      const byName = new Map(files.map((f) => [f.name, f]));
+      const originalFiles = (["front", "side", "worn"] as const)
+        .map((field) => byName.get(ORIGINAL_PHOTO_FILENAMES[field]))
+        .filter((f): f is { name: string; publicUrl: string } => Boolean(f));
+      driveOriginalImages = await Promise.all(
+        originalFiles.map(async (file) => {
+          const fileId = driveFileIdFromImageProxyUrl(file.publicUrl);
+          const { buffer, mimeType } = await downloadFile(fileId);
+          return { buffer, mimeType };
+        })
+      );
+    } catch (error) {
+      // Non-fatal — regeneration still works, it just falls back to
+      // text-to-image, same as if originalsFolderId had never been sent.
+      console.error(`Failed to recover original reference photos from Drive for regenerate:`, error);
+    }
+  }
+
+  const referenceImages = [...localReferenceImages, ...poolReferenceImages, ...driveOriginalImages];
 
   const result = await regenerateCategory(
     meta.productType as ProductType,

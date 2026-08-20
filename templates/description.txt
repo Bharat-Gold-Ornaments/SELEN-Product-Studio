@@ -1,4 +1,6 @@
-Write a Shopify product description for the luxury jewelry piece titled "{{title}}". Keep it to a single short line of no more than 8 to 10 words, elegant, and suitable for a premium jewelry brand. Mention the finish or stone naturally if it fits, avoid clichés and exclamation points. Optimize the language for SEO without keyword stuffing. If a photo of the finished piece is attached, look at it and reflect what it actually looks like rather than relying on the text details alone.
+Write a Shopify product description for the luxury jewelry piece titled "{{title}}". Keep it to a single short line of no more than 8 to 10 words — short and to the point, elegant, and suitable for a premium jewelry brand. Mention the finish or stone naturally if it fits, avoid clichés and exclamation points. Optimize the language for SEO without keyword stuffing. If a photo of the finished piece is attached, look at it and reflect what it actually looks like rather than relying on the text details alone.
+
+Every piece is silver with a plated finish (gold, rose gold, rhodium, etc. — see Finish below), never solid gold. If you mention the finish, describe it exactly as given (e.g. "gold-plated silver", "rhodium-plated silver") — never call it "gold" or "golden" on its own, and never imply it's solid gold.
 
 Details:
 Product type: {{productType}}
