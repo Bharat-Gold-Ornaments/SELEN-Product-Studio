@@ -2,6 +2,7 @@ import "server-only";
 import { DEFAULT_GENERATION_COUNTS } from "@/lib/constants";
 import { readConfigFile, writeConfigFile } from "@/services/google-drive";
 import type { ImageCategory } from "@/types/product";
+import type { MakingChargeMode } from "@/lib/pricing";
 
 const SETTINGS_FILE = "app-settings.json";
 
@@ -19,11 +20,17 @@ export interface AppSettings {
    * a toggle rather than being removed.
    */
   imageProvider: ImageProvider;
+  /** Current metal (silver) rate, ₹ per gram — the one global pricing input every product's formula reads. See src/lib/pricing.ts. */
+  ratePerGram: number;
+  /** Pre-fills new products' Making Charge Mode selector — never inferred, always an explicit per-product choice, this is just the starting value. */
+  defaultMakingChargeMode: MakingChargeMode;
 }
 
 const DEFAULTS: AppSettings = {
   generationCounts: { ...DEFAULT_GENERATION_COUNTS },
   imageProvider: "kie",
+  ratePerGram: 0,
+  defaultMakingChargeMode: "per_gram",
 };
 
 /**
@@ -43,6 +50,8 @@ export async function readAppSettings(): Promise<AppSettings> {
     return {
       generationCounts: { ...DEFAULTS.generationCounts, ...parsed.generationCounts },
       imageProvider: parsed.imageProvider ?? DEFAULTS.imageProvider,
+      ratePerGram: parsed.ratePerGram ?? DEFAULTS.ratePerGram,
+      defaultMakingChargeMode: parsed.defaultMakingChargeMode ?? DEFAULTS.defaultMakingChargeMode,
     };
   } catch {
     return DEFAULTS;
@@ -53,14 +62,25 @@ export interface AppSettingsPatch {
   /** Only the categories being changed need to be present — see the PATCH schema in api/settings/route.ts, which sends just the edited fields. */
   generationCounts?: Partial<Record<ImageCategory, number>>;
   imageProvider?: ImageProvider;
+  ratePerGram?: number;
+  defaultMakingChargeMode?: MakingChargeMode;
 }
 
-/** Merges `patch` over the current settings and writes the result. Returns the merged settings. */
+/**
+ * Merges `patch` over the current settings and writes the result. Returns
+ * the merged settings. Deliberately doesn't log rate changes itself — a
+ * `ratePerGram` change made through here (vs. through
+ * services/pricing.ts's updateGlobalRate) skips the audit log, so this stays
+ * a plain settings writer; only updateGlobalRate is the audited path for
+ * changing the rate, matching Section 9 of the pricing spec.
+ */
 export async function writeAppSettings(patch: AppSettingsPatch): Promise<AppSettings> {
   const current = await readAppSettings();
   const next: AppSettings = {
     generationCounts: { ...current.generationCounts, ...patch.generationCounts },
     imageProvider: patch.imageProvider ?? current.imageProvider,
+    ratePerGram: patch.ratePerGram ?? current.ratePerGram,
+    defaultMakingChargeMode: patch.defaultMakingChargeMode ?? current.defaultMakingChargeMode,
   };
   await writeConfigFile(SETTINGS_FILE, JSON.stringify(next, null, 2));
   return next;

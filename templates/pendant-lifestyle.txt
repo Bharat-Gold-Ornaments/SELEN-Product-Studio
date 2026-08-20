@@ -6,7 +6,7 @@ The pendant has a {{finish}} finish, features {{stone}} stones, has dimensions o
 
 Preserve the exact pendant design, silhouette, proportions, dimensions, construction, gemstone count, gemstone size and placement, metalwork, bail, loops, chain structure, chain thickness, links, prongs, texture, finish, and every other defining detail. Do not redesign, reinterpret, simplify, add, remove, enlarge, reduce, shorten, lengthen, or modify any part of the jewellery.
 
-A beautiful young woman in her mid-20s wears the exact uploaded pendant and its exact chain, where applicable. She has naturally refined features, glowing realistic skin, soft dewy makeup, and long dark hair styled behind her shoulders. She wears an elegant ivory, champagne, cream, or soft nude satin outfit with a clean graceful neckline specifically chosen to showcase the pendant.
+An elegant young adult woman wears the exact uploaded pendant and its exact chain, where applicable. She has naturally refined features, realistic skin, subtle natural makeup, and long dark hair styled behind her shoulders. She wears an elegant ivory, champagne, cream, or soft nude satin outfit with a clean graceful neckline specifically chosen to showcase the pendant.
 
 The uploaded pendant is the only jewellery worn by the model. Do not show earrings, ear studs, ear cuffs, necklaces in addition to the uploaded pendant, rings, bracelets, bangles, watches, anklets, body jewellery, or any other jewellery or accessory.
 
@@ -18,13 +18,19 @@ The chain must follow its exact original construction and drape naturally around
 
 The hair must remain behind the shoulders and must not cover the pendant, chain, neckline, or any defining product detail. No hands should touch or hold the pendant.
 
-Focus precisely on the pendant using an 85mm macro portrait photography look. Keep the pendant, {{stone}} stones, metalwork, bail, and defining craftsmanship in tack-sharp focus while allowing the model's face and background to remain slightly softer. Preserve realistic skin texture and natural anatomy.
+Focus precisely on the pendant using an 85mm macro portrait photography look. Keep the pendant, {{stone}} stones, metalwork, bail, and defining craftsmanship in tack-sharp focus while allowing the model's face and background to remain slightly softer. Preserve realistic, natural-looking skin texture.
 
 Soft warm golden-hour inspired lighting enters from the side, creating gentle champagne highlights, realistic {{finish}} metal reflections, accurate gemstone sparkle, and soft natural shadows. The background consists of softly blurred ivory flowers, delicate dried flowers, flowing champagne satin fabric, creamy beige tones, and luxurious creamy bokeh.
 
-Luxury editorial fashion photography, premium boutique jewellery campaign, product-first composition, refined feminine styling, macro beauty photography, cinematic soft luxury lighting, photorealistic, ultra-detailed, elegant contemporary jewellery advertisement.
+Luxury editorial fashion photography, premium boutique jewellery campaign, product-first composition, refined feminine styling, macro editorial photography, cinematic soft luxury lighting, photorealistic, ultra-detailed, elegant contemporary jewellery advertisement.
 
 Square 1:1 composition.
+
+## Camera & Composition
+
+85mm macro portrait lens look, approximately f/2.8, ISO 100, soft diffused side lighting, subtle fill, shallow depth of field, creamy bokeh, realistic luxury editorial photography.
+
+The pendant is the only jewellery worn by the model. Keep the pendant in tack-sharp focus and make it the immediate visual focal point.
 
 --- NEGATIVE PROMPT ---
 Altered or redesigned pendant, incorrect shape, proportions, dimensions, gemstone count, gemstone size, gemstone placement, altered metalwork, altered bail, loops, prongs, chain, links, chain thickness, chain length, incorrect {{finish}} finish, different pendant, duplicate pendant, extra pendant, oversized jewellery, missing stones, extra stones, distorted, warped, melted, deformed jewellery.
@@ -35,8 +41,4 @@ No hair covering the pendant or chain, no hands touching or holding the pendant,
 
 No text, letters, logo, watermark, signature, brand mark, CGI, 3D render, cartoon, illustration, distorted anatomy, unrealistic reflections, excessive sparkle, harsh lighting, excessive makeup, plastic skin, low detail, low resolution, blur on pendant, noisy image, cluttered background.
 
-## Camera & Composition
-
-85mm macro portrait lens look, approximately f/2.8, ISO 100, soft diffused side lighting, subtle fill, shallow depth of field, creamy bokeh, realistic luxury beauty photography.
-
-The pendant is the only jewellery worn by the model. Keep the pendant in tack-sharp focus and make it the immediate visual focal point.
+Overly stylized beauty/fashion-portrait framing, dramatic eye contact, or any composition where the model's expression becomes the focus rather than the jewellery.

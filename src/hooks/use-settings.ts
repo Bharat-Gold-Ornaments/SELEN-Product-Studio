@@ -36,10 +36,14 @@ export function useIntegrationStatus() {
 }
 
 export type ImageProvider = "kie" | "leonardo";
+export type MakingChargeMode = "flat" | "per_gram";
 
 export interface AppSettings {
   generationCounts: Record<ImageCategory, number>;
   imageProvider: ImageProvider;
+  /** ₹ per gram — the one global pricing input; changed only via useUpdateAllPrices (see hooks/use-pricing.ts), never through this settings PATCH. */
+  ratePerGram: number;
+  defaultMakingChargeMode: MakingChargeMode;
 }
 
 /** Default Generation Counts and any other admin-editable settings — see services/app-settings.ts. */
@@ -86,6 +90,28 @@ export function useUpdateImageProvider() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageProvider }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "Couldn't save settings.");
+      }
+      return (await res.json()) as AppSettings;
+    },
+    onSuccess: (settings) => {
+      queryClient.setQueryData(["app-settings"], settings);
+    },
+  });
+}
+
+/** Pre-fills new products' Making Charge Mode selector — see AppSettings' doc comment. */
+export function useUpdateDefaultMakingChargeMode() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (defaultMakingChargeMode: MakingChargeMode) => {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ defaultMakingChargeMode }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);

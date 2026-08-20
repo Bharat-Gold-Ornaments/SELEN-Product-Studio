@@ -20,16 +20,15 @@ The final image should feel elegant, elevated, contemporary, and suitable for a 
 
 Square 1:1 composition.
 
-## Negative Prompt
-
-Altered or redesigned necklace, incorrect shape, proportions, dimensions, changed chain length, altered chain thickness, incorrect links, missing or extra links, missing or extra pendant components, resized gemstones, missing or extra gemstones, incorrect stone placement, altered metalwork, altered clasp, hook, loop or connector, incorrect {{finish}} finish, distorted, tangled, knotted, warped, melted, deformed necklace.
-
-Added jewellery pieces, duplicate necklace, floating necklace, unsupported necklace, impossible chain drape, necklace passing through stand, incomplete necklace, cropped chain, cropped clasp when essential to the product.
-
-Hands, model, neck, face, body, text, letters, logo, watermark, signature, brand mark, stamp, timestamp, price tag, label, sticker, packaging, box, cluttered background, distracting props, excessive flowers, harsh shadows, dark lighting, blown highlights, excessive sparkle, unrealistic reflections, CGI, 3D render, cartoon, illustration, low detail, low resolution, blur on essential jewellery details, noisy image, oversaturated colours.
-
 ## Camera & Lighting
 
 85mm product lens look, f/3.2 to f/4, ISO 100, soft diffused key light from approximately 45 degrees, gentle reflector fill, soft overhead ambient light, controlled depth of field, creamy bokeh, realistic luxury jewellery reflections.
 
 Keep the full necklace clearly visible and naturally arranged. The ivory suede bust stand should support the necklace physically but remain secondary to the jewellery.
+
+--- NEGATIVE PROMPT ---
+Altered or redesigned necklace, incorrect shape, proportions, dimensions, changed chain length, altered chain thickness, incorrect links, missing or extra links, missing or extra pendant components, resized gemstones, missing or extra gemstones, incorrect stone placement, altered metalwork, altered clasp, hook, loop or connector, incorrect {{finish}} finish, distorted, tangled, knotted, warped, melted, deformed necklace.
+
+Added jewellery pieces, duplicate necklace, floating necklace, unsupported necklace, impossible chain drape, necklace passing through stand, incomplete necklace, cropped chain, cropped clasp when essential to the product.
+
+Hands, model, neck, face, body, text, letters, logo, watermark, signature, brand mark, stamp, timestamp, price tag, label, sticker, packaging, box, cluttered background, distracting props, excessive flowers, harsh shadows, dark lighting, blown highlights, excessive sparkle, unrealistic reflections, CGI, 3D render, cartoon, illustration, low detail, low resolution, blur on essential jewellery details, noisy image, oversaturated colours.

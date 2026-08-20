@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useProduct, usePublishProduct } from "@/hooks/use-product";
+import { useAppSettings } from "@/hooks/use-settings";
+import { PricingPanel } from "@/components/pricing/pricing-panel";
 import { IMAGE_CATEGORY_LABELS } from "@/lib/constants";
 
 /**
@@ -26,6 +28,7 @@ import { IMAGE_CATEGORY_LABELS } from "@/lib/constants";
  */
 export function FinalizeClient({ productId }: { productId: string }) {
   const productQuery = useProduct(productId);
+  const settingsQuery = useAppSettings();
   const publish = usePublishProduct();
 
   const [price, setPrice] = useState("");
@@ -146,32 +149,22 @@ export function FinalizeClient({ productId }: { productId: string }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Price &amp; Inventory</CardTitle>
+          <CardTitle>Inventory</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4 pt-0 sm:flex-row">
-          <div className="flex-1 space-y-1.5">
-            <Label>Price (INR)</Label>
-            <div className="relative">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                ₹
-              </span>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="0.00"
-                className="pl-7"
-              />
-            </div>
-          </div>
-          <div className="flex-1 space-y-1.5">
+        <CardContent className="pt-0">
+          <div className="max-w-xs space-y-1.5">
             <Label>Inventory</Label>
             <Input type="number" min="0" step="1" value={inventory} onChange={(e) => setInventory(e.target.value)} />
           </div>
         </CardContent>
       </Card>
+
+      <PricingPanel
+        productId={productId}
+        record={record}
+        ratePerGram={settingsQuery.data?.ratePerGram ?? 0}
+        onPriced={(computed) => setPrice(String(computed))}
+      />
 
       {publish.data ? (
         <div className="flex flex-col items-start gap-3 rounded-2xl border border-success/30 bg-success/5 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">

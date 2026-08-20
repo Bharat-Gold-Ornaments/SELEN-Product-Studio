@@ -35,6 +35,21 @@ export function buildDraftProductRecord(productId: string, values: ProductFormVa
     closeupImageLink: "",
     createdDate: new Date().toISOString().slice(0, 10),
     shopifyProductId: null,
+    // Pricing Dashboard fields (src/lib/pricing.ts) — all filled in later at
+    // Finalize, where the pricing panel lives; Create Product only ever
+    // collects Gross Weight (weightGrams above). makingChargeMode defaults
+    // to "per_gram" as a starting guess, same as AppSettings' own default —
+    // Create Product doesn't read the real global default since this is a
+    // synchronous builder with no settings fetch, but Finalize always shows
+    // (and lets the user change) whatever's here before anything gets saved
+    // for real.
+    netWeightGrams: 0,
+    makingChargeMode: "per_gram" as const,
+    makingChargeValue: 0,
+    stoneLineItems: "",
+    manualPriceOverride: false,
+    priceSyncStatus: "" as const,
+    priceSyncedAt: "",
   };
 
   switch (values.productType) {

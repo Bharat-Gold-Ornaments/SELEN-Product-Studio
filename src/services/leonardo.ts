@@ -80,7 +80,13 @@ interface LeonardoCreateGenerationResponse {
 interface LeonardoGetGenerationResponse {
   generations_by_pk?: {
     status?: "PENDING" | "COMPLETE" | "FAILED" | string;
-    generated_images?: { url?: string }[];
+    generated_images?: { url?: string; nsfw?: boolean }[];
+    // Present when Leonardo's (or the underlying partner model's, e.g. GPT
+    // Image 2's) content moderation flagged the prompt — this is the actual
+    // reason behind most "FAILED" generations and behind images that come
+    // back COMPLETE with generated_images[].nsfw: true. Confirmed against a
+    // real gpt-image-2 call: see the comment on pollGeneration below.
+    prompt_moderations?: { moderationClassification?: string[] }[];
   };
 }
 
@@ -347,20 +353,39 @@ async function pollGeneration(generationId: string): Promise<string[]> {
 
   while (Date.now() < deadline) {
     const body = await leonardoFetch<LeonardoGetGenerationResponse>(`/generations/${generationId}`);
-    const status = body.generations_by_pk?.status;
+    const generation = body.generations_by_pk;
+    const status = generation?.status;
+
+    // Confirmed against a real gpt-image-2 call while diagnosing this
+    // template's "Leonardo reported the generation as failed" errors: this
+    // field is present alongside both status: "FAILED" and (more
+    // insidiously) status: "COMPLETE" with generated_images[].nsfw: true —
+    // Leonardo doesn't always hard-fail a moderation hit, it sometimes just
+    // flags the resulting image and returns it anyway. Surfacing this text
+    // in both branches below turns a useless generic error into an
+    // actionable one, and stops flagged images from silently reaching
+    // Shopify as if generation had succeeded cleanly.
+    const moderationReasons = (generation?.prompt_moderations ?? [])
+      .flatMap((m) => m.moderationClassification ?? [])
+      .filter(Boolean);
+    const moderationSuffix =
+      moderationReasons.length > 0 ? ` (flagged by content moderation: ${moderationReasons.join(", ")})` : "";
 
     if (status === "COMPLETE") {
-      const urls = (body.generations_by_pk?.generated_images ?? [])
-        .map((image) => image.url)
-        .filter((url): url is string => Boolean(url));
-      if (urls.length === 0) {
-        throw new Error("Leonardo reported the generation as complete but returned no images.");
+      const images = generation?.generated_images ?? [];
+      const clean = images.filter((image) => Boolean(image.url) && !image.nsfw);
+      if (clean.length === 0) {
+        throw new Error(
+          images.length > 0
+            ? `Leonardo flagged every generated image as NSFW and none were usable${moderationSuffix}. Try regenerating, or soften this category's template if it keeps happening.`
+            : "Leonardo reported the generation as complete but returned no images."
+        );
       }
-      return urls;
+      return clean.map((image) => image.url as string);
     }
 
     if (status === "FAILED") {
-      throw new Error("Leonardo reported the generation as failed.");
+      throw new Error(`Leonardo reported the generation as failed${moderationSuffix}.`);
     }
 
     await delay(POLL_INTERVAL_MS);

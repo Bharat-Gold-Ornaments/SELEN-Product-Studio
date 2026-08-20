@@ -18,15 +18,15 @@ The final image should feel refined, contemporary, minimal, elegant, and aspirat
 
 Square 1:1 composition.
 
+## Camera & Lighting
+
+85mm macro lens, f/2.8, ISO 100, soft diffused key light from approximately 45 degrees, subtle reflector for gentle fill, soft overhead ambient fill, shallow depth of field, creamy bokeh, realistic luxury product photography.
+
+The pendant should occupy approximately 45% of the image height. Keep the entire pendant clearly visible, with the ivory suede stand secondary and softly integrated into the composition.
+
 --- NEGATIVE PROMPT ---
 Altered or redesigned pendant, incorrect shape, proportions, dimensions, thickness, missing or extra components, resized gemstones, missing or extra gemstones, incorrect stone placement, altered metalwork, altered bail, loop or prongs, incorrect {{finish}} finish, changed texture, distorted, warped, melted, deformed jewellery.
 
 Added chain, necklace, string, thread, cord, ribbon, price tag, label, sticker, packaging, box, floating pendant, unsupported pendant, incorrect attachment, pendant passing through the stand.
 
 Hands, model, face, body, text, letters, logo, watermark, signature, brand mark, stamp, timestamp, cluttered background, distracting props, excessive flowers, harsh shadows, dark lighting, blown highlights, excessive sparkle, unrealistic reflections, CGI, 3D render, cartoon, illustration, low detail, low resolution, blur on jewellery, noisy image, oversaturated colours, cropped or incomplete pendant.
-
-## Camera & Lighting
-
-85mm macro lens, f/2.8, ISO 100, soft diffused key light from approximately 45 degrees, subtle reflector for gentle fill, soft overhead ambient fill, shallow depth of field, creamy bokeh, realistic luxury product photography.
-
-The pendant should occupy approximately 45% of the image height. Keep the entire pendant clearly visible, with the ivory suede stand secondary and softly integrated into the composition.

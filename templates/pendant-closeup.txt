@@ -26,6 +26,12 @@ Use a 100mm macro product photography look with sufficient depth of field to kee
 
 Square 1:1 composition.
 
+## Camera & Lighting
+
+100mm macro lens look, approximately f/8, ISO 100, precision product composition, soft diffused key light from 45 degrees, subtle rim light for depth, controlled reflections, sufficient depth of field to preserve sharp detail across the complete pendant.
+
+The pendant must clearly communicate its exact front design, side profile, thickness, edge construction, stone settings, and craftsmanship.
+
 --- NEGATIVE PROMPT ---
 More than one pendant, duplicate pendant, altered or redesigned pendant, incorrect shape, proportions, dimensions, thickness, gemstone count, gemstone size, gemstone placement, altered metalwork, altered bail, loops, attachment points, prongs, settings, back construction, incorrect {{finish}} finish, missing or extra components, distorted, warped, melted, deformed jewellery.
 
@@ -36,9 +42,3 @@ Floating pendant, suspended pendant, impossible angle, unrealistic contact shado
 Model, neck, ear, face, body, hands, worn jewellery, earrings, necklace, ring, bracelet, bangle, watch, text, logo, watermark, signature, price tag, label, packaging, jewellery box, excessive props, flowers, ribbons, fabric covering the pendant, cluttered background.
 
 CGI, 3D render, cartoon, illustration, unrealistic marble, harsh reflections, blown highlights, dark shadows, excessive sparkle, low detail, low resolution, blur on pendant, cropped or incomplete pendant.
-
-## Camera & Lighting
-
-100mm macro lens look, approximately f/8, ISO 100, precision product composition, soft diffused key light from 45 degrees, subtle rim light for depth, controlled reflections, sufficient depth of field to preserve sharp detail across the complete pendant.
-
-The pendant must clearly communicate its exact front design, side profile, thickness, edge construction, stone settings, and craftsmanship.

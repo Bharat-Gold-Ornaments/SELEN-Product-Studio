@@ -101,4 +101,19 @@ export interface ProductRecord {
   closeupImageLink: string;
   createdDate: string;
   shopifyProductId: string | null;
+  // ── Pricing Dashboard fields (see src/lib/pricing.ts) ────────────────────
+  // `weightGrams` above doubles as Gross Weight — the two were the same
+  // concept even before this feature, so it wasn't renamed/duplicated, only
+  // reinterpreted. `netWeightGrams` is new: metal-only weight, excluding any
+  // set stones/pearls. 0 (not null) is the "not yet entered" state for both
+  // number fields here, matching every other numeric ProductRecord field.
+  netWeightGrams: number;
+  makingChargeMode: "flat" | "per_gram";
+  makingChargeValue: number;
+  /** JSON-serialized StoneLineItem[] (see src/lib/pricing.ts) — Sheets has no native array-of-objects column type. Empty string/array when Case A (no separate stone pricing). */
+  stoneLineItems: string;
+  manualPriceOverride: boolean;
+  /** "synced" once `price` has been successfully pushed to Shopify, "out_of_sync" if a push failed, "" before the product is ever published. */
+  priceSyncStatus: "synced" | "out_of_sync" | "";
+  priceSyncedAt: string;
 }

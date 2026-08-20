@@ -30,6 +30,12 @@ Use a 100mm macro product photography look with controlled depth of field and pr
 
 Square 1:1 composition.
 
+## Camera & Lighting
+
+100mm macro lens look, approximately f/5.6 to f/8, ISO 100, precision product composition, soft diffused key light from 45 degrees, subtle rim light revealing depth and contours, controlled reflections, selective focus on the primary design.
+
+Exactly one bracelet must appear in the entire image. The close-up should clearly communicate its exact design, thickness, structural construction, gemstone settings, links or rigid form, and craftsmanship.
+
 --- NEGATIVE PROMPT ---
 More than one bracelet, two bracelets, duplicate bracelet, stacked bracelets, additional bracelet, bangle, watch, hand chain, altered or redesigned bracelet, incorrect shape, proportions, dimensions, circumference, width, thickness, altered chain structure, missing or extra links, altered charms, altered clasp, connector or attachment point, gemstone count, gemstone size, gemstone placement, incorrect {{finish}} finish, missing or extra components, distorted, stretched, compressed, flattened, warped, bent, melted, deformed jewellery.
 
@@ -38,9 +44,3 @@ Floating bracelet, suspended bracelet, impossible chain curve, tangled chain, kn
 Model, wrist, hand, fingers, ear, neck, face, body, worn jewellery, earrings, necklace, pendant, ring, text, logo, watermark, signature, price tag, label, packaging, jewellery box, excessive props, flowers, ribbons, fabric covering jewellery, cluttered background.
 
 CGI, 3D render, cartoon, illustration, unrealistic marble, harsh reflections, blown highlights, dark shadows, excessive sparkle, unrealistic materials, low detail, low resolution, blur on primary bracelet detail, cropped defining design.
-
-## Camera & Lighting
-
-100mm macro lens look, approximately f/5.6 to f/8, ISO 100, precision product composition, soft diffused key light from 45 degrees, subtle rim light revealing depth and contours, controlled reflections, selective focus on the primary design.
-
-Exactly one bracelet must appear in the entire image. The close-up should clearly communicate its exact design, thickness, structural construction, gemstone settings, links or rigid form, and craftsmanship.

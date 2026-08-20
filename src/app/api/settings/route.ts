@@ -22,6 +22,11 @@ const patchSchema = z.object({
     })
     .optional(),
   imageProvider: z.enum(["kie", "leonardo"]).optional(),
+  // Rate/gram itself is deliberately NOT accepted here — the only audited
+  // path for changing it is POST /api/pricing/update-all (see
+  // services/pricing.ts's updateGlobalRate doc comment). Only the
+  // per-product default pre-fill goes through this generic settings patch.
+  defaultMakingChargeMode: z.enum(["flat", "per_gram"]).optional(),
 });
 
 /** Saves the Default Generation Counts form on Settings. */

@@ -6,7 +6,7 @@ The bracelet has a {{finish}} finish, features {{stone}} stones, has dimensions 
 
 Preserve the exact bracelet design, silhouette, proportions, dimensions, circumference appearance, width, thickness, chain structure, links, gemstone count, gemstone size and placement, charms, clasps, connectors, metalwork, texture, finish, and every other defining detail. Do not redesign, reinterpret, simplify, add, remove, enlarge, reduce, or modify any part of the bracelet.
 
-A beautiful young woman in her mid-20s wears exactly the uploaded bracelet naturally on one wrist. The uploaded bracelet is the only jewellery worn by the model.
+An elegant young adult woman wears exactly the uploaded bracelet naturally on one wrist. The uploaded bracelet is the only jewellery worn by the model.
 
 Never add a second bracelet. Never duplicate the bracelet on the other wrist. Never stack bracelets. Never add bangles, watches, rings, hand chains, or any other jewellery to either hand or wrist.
 
@@ -18,15 +18,21 @@ The bracelet must follow the wrist naturally. Do not stretch, compress, flatten,
 
 The uploaded bracelet must be the unmistakable hero product and occupy approximately 25–40% of the frame. Keep the complete bracelet clearly visible with comfortable breathing room. It must be the sharpest element in the image and should never appear small, distant, cropped, or visually lost.
 
-Focus precisely on the bracelet using an 85mm macro beauty photography look. Maintain tack-sharp focus on the {{stone}} stones, primary design, metalwork, links, and defining craftsmanship while allowing the hand and background to transition naturally into soft blur. Preserve realistic skin texture, natural wrist anatomy, fingers, and nails.
+Focus precisely on the bracelet using an 85mm macro editorial photography look. Maintain tack-sharp focus on the {{stone}} stones, primary design, metalwork, links, and defining craftsmanship while allowing the hand and background to transition naturally into soft blur. Preserve realistic skin texture, natural wrist anatomy, fingers, and nails.
 
 Use clean natural nails with a subtle neutral manicure. Keep the hand styling minimal and ensure it does not compete with the bracelet.
 
 Soft warm golden-hour inspired lighting enters from the side, producing gentle champagne highlights, realistic {{finish}} metal reflections, accurate gemstone sparkle, and soft natural shadows. The background consists of softly blurred ivory flowers, delicate dried flowers, flowing champagne or ivory satin fabric, creamy beige tones, and luxurious creamy bokeh.
 
-Luxury editorial jewellery photography, premium boutique campaign, product-first composition, macro beauty photography, refined feminine styling, cinematic soft luxury lighting, photorealistic, ultra-detailed, elegant contemporary jewellery advertisement.
+Luxury editorial jewellery photography, premium boutique campaign, product-first composition, macro editorial photography, refined feminine styling, cinematic soft luxury lighting, photorealistic, ultra-detailed, elegant contemporary jewellery advertisement.
 
 Square 1:1 composition.
+
+## Camera & Composition
+
+85mm macro lens look, approximately f/2.8, ISO 100, soft diffused side lighting, subtle fill, shallow depth of field, creamy bokeh, realistic luxury jewellery hand and wrist photography.
+
+There must be exactly one bracelet in the entire image: the uploaded bracelet, worn once on one wrist. It is the only jewellery worn by the model and must be the immediate visual focal point.
 
 --- NEGATIVE PROMPT ---
 More than one bracelet, two bracelets, duplicate bracelet, matching bracelet on the other wrist, stacked bracelets, additional bracelet, bangle, watch, hand chain, ring, or any jewellery on either hand or wrist.
@@ -40,9 +46,3 @@ No face, no body, no zoomed-out composition, no bracelet appearing small in the 
 No distorted fingers, extra fingers, missing fingers, fused fingers, unnatural joints, malformed hands, unrealistic anatomy.
 
 No text, letters, logo, watermark, signature, brand mark, CGI, 3D render, cartoon, illustration, unrealistic reflections, excessive sparkle, harsh lighting, low detail, low resolution, blur on bracelet, noisy image, cluttered background.
-
-## Camera & Composition
-
-85mm macro lens look, approximately f/2.8, ISO 100, soft diffused side lighting, subtle fill, shallow depth of field, creamy bokeh, realistic luxury jewellery hand and wrist photography.
-
-There must be exactly one bracelet in the entire image: the uploaded bracelet, worn once on one wrist. It is the only jewellery worn by the model and must be the immediate visual focal point.

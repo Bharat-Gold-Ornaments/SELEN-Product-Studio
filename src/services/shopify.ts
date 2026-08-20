@@ -635,3 +635,98 @@ export async function publishProductToShopify(input: PublishProductInput): Promi
     adminUrl: `https://${storeDomain()}/admin/products/${numericId}`,
   };
 }
+
+// ── Pricing Dashboard sync ───────────────────────────────────────────────
+// The Admin Pricing Dashboard's one integration point with Shopify (see
+// src/lib/pricing.ts and services/pricing.ts): pushes only the final
+// computed price and, optionally, Gross Weight — never Net Weight, making
+// charge, stone/pearl line items, or Rate/gram, which stay entirely
+// internal to this dashboard.
+
+function productGidFromNumericId(numericId: string): string {
+  return `gid://shopify/Product/${numericId}`;
+}
+
+/**
+ * Looks up an already-published product's single variant id — every
+ * product this app creates has exactly one ("Default Title") variant, but
+ * `productVariantsBulkUpdate` needs that variant's own id, not the
+ * product's, and productSet's create-time response never returned it (only
+ * `product { id }`), so it's fetched fresh here rather than stored anywhere.
+ */
+async function getDefaultVariantId(productGid: string): Promise<string> {
+  const data = await shopifyGraphQL<{
+    product: { variants: { nodes: { id: string }[] } } | null;
+  }>(
+    `query getVariant($id: ID!) {
+      product(id: $id) {
+        variants(first: 1) { nodes { id } }
+      }
+    }`,
+    { id: productGid }
+  );
+  const variantId = data.product?.variants.nodes[0]?.id;
+  if (!variantId) {
+    throw new Error(`Shopify product ${productGid} has no variant to update.`);
+  }
+  return variantId;
+}
+
+export interface UpdateShopifyPriceInput {
+  shopifyProductId: string;
+  /** The final, already-computed (and already-rounded) price — see computeFinalPrice in src/lib/pricing.ts. Never a raw/unrounded value. */
+  price: number;
+  /** Only pushed when provided — omitted for a plain "Update All Prices" rate refresh, since gross weight doesn't change there. */
+  grossWeightGrams?: number;
+}
+
+/**
+ * Pushes a recomputed price (and, optionally, an updated Gross Weight) to
+ * an already-published product — the one place this dashboard talks back
+ * to Shopify after the initial publish. Used by both the per-product
+ * pricing save and the bulk "Update All Prices" action (services/pricing.ts).
+ * Throws on failure rather than swallowing it — callers are expected to
+ * catch this and mark the product `priceSyncStatus: "out_of_sync"` rather
+ * than have the sync itself decide that's fine.
+ */
+export async function updateShopifyProductPrice(input: UpdateShopifyPriceInput): Promise<void> {
+  const productGid = productGidFromNumericId(input.shopifyProductId);
+  const variantId = await getDefaultVariantId(productGid);
+
+  const variantData = await shopifyGraphQL<{
+    productVariantsBulkUpdate: {
+      userErrors: { field?: string[] | null; message: string }[];
+    };
+  }>(
+    `mutation updatePrice($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+      productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+        userErrors { field message }
+      }
+    }`,
+    { productId: productGid, variants: [{ id: variantId, price: input.price }] }
+  );
+  assertNoUserErrors(variantData.productVariantsBulkUpdate.userErrors, "productVariantsBulkUpdate (price sync)");
+
+  if (input.grossWeightGrams != null && input.grossWeightGrams > 0) {
+    const metafieldData = await shopifyGraphQL<{
+      metafieldsSet: { userErrors: { field?: string[] | null; message: string }[] };
+    }>(
+      `mutation updateWeight($metafields: [MetafieldsSetInput!]!) {
+        metafieldsSet(metafields: $metafields) {
+          userErrors { field message }
+        }
+      }`,
+      {
+        metafields: [
+          {
+            ownerId: productGid,
+            namespace: "custom",
+            key: "weight_display",
+            value: `${input.grossWeightGrams}g`,
+          },
+        ],
+      }
+    );
+    assertNoUserErrors(metafieldData.metafieldsSet.userErrors, "metafieldsSet (weight sync)");
+  }
+}

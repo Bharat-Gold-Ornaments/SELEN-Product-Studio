@@ -122,6 +122,15 @@ const COLUMNS = [
   "metaDescription",
   // Appended for Milestone 9 (Finalize + Publish) — same append-only rule.
   "price",
+  // Appended for the Admin Pricing Dashboard feature — same append-only
+  // rule. `weightGrams` above continues to double as Gross Weight.
+  "netWeightGrams",
+  "makingChargeMode",
+  "makingChargeValue",
+  "stoneLineItems",
+  "manualPriceOverride",
+  "priceSyncStatus",
+  "priceSyncedAt",
 ] as const satisfies readonly (keyof ProductRecord)[];
 
 // Converts a 0-based column index to its Sheets column letter(s) — A, B, ...
@@ -214,6 +223,16 @@ function rowToRecord(row: string[]): ProductRecord {
     seoTitle: get(24),
     metaDescription: get(25),
     price: Number(get(26)) || 0,
+    netWeightGrams: Number(get(27)) || 0,
+    makingChargeMode: get(28) === "flat" ? "flat" : "per_gram",
+    makingChargeValue: Number(get(29)) || 0,
+    stoneLineItems: get(30),
+    manualPriceOverride: get(31).toLowerCase() === "true",
+    priceSyncStatus: ((): ProductRecord["priceSyncStatus"] => {
+      const raw = get(32);
+      return raw === "synced" || raw === "out_of_sync" ? raw : "";
+    })(),
+    priceSyncedAt: get(33),
   };
 }
 

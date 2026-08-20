@@ -6,7 +6,7 @@ The necklace has a {{finish}} finish, features {{stone}} stones, has dimensions 
 
 Preserve the exact necklace design, silhouette, proportions, dimensions, chain type, chain thickness, length appearance, links, pendant elements, gemstone count, gemstone size and placement, metalwork, clasps, hooks, loops, connectors, texture, finish, and every other defining detail. Do not redesign, reinterpret, simplify, add, remove, enlarge, reduce, shorten, lengthen, or modify any part of the necklace.
 
-A beautiful young woman in her mid-20s wears the exact uploaded necklace. She has naturally refined features, glowing realistic skin, soft dewy makeup, and long dark hair styled behind her shoulders. She wears an elegant ivory, champagne, cream, or soft nude satin outfit with a clean neckline chosen specifically to display the complete necklace.
+An elegant young adult woman wears the exact uploaded necklace. She has naturally refined features, realistic skin, subtle natural makeup, and long dark hair styled behind her shoulders. She wears an elegant ivory, champagne, cream, or soft nude satin outfit with a clean neckline chosen specifically to display the complete necklace.
 
 The uploaded necklace is the only jewellery worn by the model.
 
@@ -22,13 +22,19 @@ Keep the neckline and collarbone clean and fully visible. The hair must remain b
 
 The necklace should occupy approximately 30–45% of the visual composition, depending on its original length and structure. Maintain sharp focus on the {{stone}} stones, chain texture, pendant elements, metalwork, and defining craftsmanship while allowing the model's face and background to remain slightly softer.
 
-Use an 85mm luxury portrait photography look with sufficient depth of field to keep all essential necklace details sharp and readable while creating soft separation from the background. Preserve realistic skin texture and natural anatomy.
+Use an 85mm luxury portrait photography look with sufficient depth of field to keep all essential necklace details sharp and readable while creating soft separation from the background. Preserve realistic, natural-looking skin texture.
 
 Soft warm golden-hour inspired lighting enters from the side, producing gentle champagne highlights, realistic {{finish}} metal reflections, accurate gemstone sparkle, and soft natural shadows. The background consists of softly blurred ivory flowers, delicate dried flowers, flowing champagne satin fabric, creamy beige tones, and luxurious creamy bokeh.
 
-Luxury editorial fashion photography, premium boutique jewellery campaign, product-first composition, refined feminine styling, macro beauty inspired photography, cinematic soft luxury lighting, photorealistic, ultra-detailed, elegant contemporary jewellery advertisement.
+Luxury editorial fashion photography, premium boutique jewellery campaign, product-first composition, refined feminine styling, macro editorial photography, cinematic soft luxury lighting, photorealistic, ultra-detailed, elegant contemporary jewellery advertisement.
 
 Square 1:1 composition.
+
+## Camera & Composition
+
+85mm luxury portrait lens look, approximately f/2.8 to f/4 depending on necklace structure, ISO 100, soft diffused side lighting, subtle fill, controlled depth of field, creamy bokeh, realistic luxury jewellery photography.
+
+There must be exactly one necklace in the entire image: the uploaded necklace. It is the only jewellery worn by the model and must remain the immediate visual focal point.
 
 --- NEGATIVE PROMPT ---
 Altered or redesigned necklace, incorrect shape, proportions, dimensions, altered chain length, altered chain thickness, incorrect links, missing or extra links, altered pendant elements, missing or extra components, gemstone count, gemstone size, gemstone placement, altered metalwork, clasp, hook, loop or connector, incorrect {{finish}} finish, distorted, tangled, knotted, warped, stretched, melted, deformed jewellery.
@@ -41,8 +47,4 @@ No hair covering the necklace, no hands touching, holding, lifting, or obscuring
 
 No text, letters, logo, watermark, signature, brand mark, CGI, 3D render, cartoon, illustration, distorted anatomy, unrealistic reflections, excessive sparkle, harsh lighting, excessive makeup, plastic skin, low detail, low resolution, blur on essential necklace details, noisy image, cluttered background.
 
-## Camera & Composition
-
-85mm luxury portrait lens look, approximately f/2.8 to f/4 depending on necklace structure, ISO 100, soft diffused side lighting, subtle fill, controlled depth of field, creamy bokeh, realistic luxury jewellery photography.
-
-There must be exactly one necklace in the entire image: the uploaded necklace. It is the only jewellery worn by the model and must remain the immediate visual focal point.
+Overly stylized beauty/fashion-portrait framing, dramatic eye contact, or any composition where the model's expression becomes the focus rather than the jewellery.

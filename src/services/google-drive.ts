@@ -106,9 +106,18 @@ const FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
  * /api/drive-image/[fileId] proxy (see that route for why), never a
  * Google-hosted URL directly. Kept relative so callers don't need to know
  * this app's own base URL.
+ *
+ * `version`, when given, is appended as a `?v=` query param — purely to
+ * bust caching (the browser's and the proxy route's own `max-age=300`, see
+ * that route) for a file whose *id* stays the same but whose *bytes* just
+ * changed, e.g. Regenerate overwriting the same Drive file in place (see
+ * uploadFile below). Every downstream reader of these URLs
+ * (driveFileIdFromImageProxyUrl and friends) already strips everything from
+ * `?` onward, so adding this never breaks anything that parses the file id
+ * back out.
  */
-function imageProxyUrl(fileId: string): string {
-  return `/api/drive-image/${fileId}`;
+function imageProxyUrl(fileId: string, version?: number): string {
+  return version ? `/api/drive-image/${fileId}?v=${version}` : `/api/drive-image/${fileId}`;
 }
 
 /**
@@ -190,7 +199,12 @@ async function uploadFile(
     fileId = res.data.id;
   }
 
-  const publicUrl = await getPublicLink(fileId);
+  // Stamped with the current time so a regenerate — which overwrites this
+  // same fileId's content via files.update above rather than creating a new
+  // file — still produces a URL the browser (and the drive-image proxy's
+  // own cache, see imageProxyUrl) treats as new instead of replaying the
+  // stale cached bytes from before the overwrite.
+  const publicUrl = await getPublicLink(fileId, Date.now());
   return { fileId, publicUrl };
 }
 
@@ -265,14 +279,14 @@ export async function listFiles(folderId: string): Promise<DriveFile[]> {
  * harmless and convenient for anyone who wants to open the file directly in
  * Drive's UI from its file id.
  */
-export async function getPublicLink(fileId: string): Promise<string> {
+export async function getPublicLink(fileId: string, version?: number): Promise<string> {
   const drive = getDriveClient();
   await drive.permissions.create({
     fileId,
     requestBody: { role: "reader", type: "anyone" },
     supportsAllDrives: true,
   });
-  return imageProxyUrl(fileId);
+  return imageProxyUrl(fileId, version);
 }
 
 /**
