@@ -17,15 +17,36 @@ const LEONARDO_API_BASE_V2 = "https://cloud.leonardo.ai/api/rest/v2";
 const GPT_IMAGE_2_MODEL = "gpt-image-2";
 const FLUX_KONTEXT_PRO_MODEL = "flux-kontext-pro";
 // Leonardo's own native model (despite also living on the v2 endpoint,
-// unlike GPT Image 2/FLUX Kontext this isn't a third-party partner model) —
-// see createGenerationV2's doc comment for the two ways it's handled
-// differently from those two. Confirmed against
-// https://docs.leonardo.ai/docs/phoenix.
+// unlike GPT Image 2/FLUX Kontext this isn't a third-party partner model).
+// Confirmed against https://docs.leonardo.ai/docs/phoenix.
 const PHOENIX_MODEL = "phoenix-v1.0";
+// "Nano Banana Pro" (Gemini 3 Pro Image) — a third-party partner model like
+// GPT Image 2/FLUX Kontext. Confirmed against
+// https://docs.leonardo.ai/docs/nano-banana-pro.
+const NANO_BANANA_PRO_MODEL = "gemini-image-2";
+// A third-party partner model like the two above — no relation to the v1
+// "IMAGE_TO_IMAGE_STRENGTH"-style dial. IMPORTANT: unlike every other v2
+// model here, Ideogram 3.0 has NO image-to-image / reference-image support
+// at all on Leonardo's API — no `guidances` field of any kind is documented
+// for it (confirmed by an exhaustive search of its docs page for
+// "guidances", "image_reference", "image_to_image", "reference image", and
+// "init_image" — none appear). Selecting this model means every generation,
+// including Regenerate, runs as pure text-to-image: uploaded front/side/worn
+// photos are silently NOT used to keep the result visually consistent with
+// the real piece, unlike every other model this app supports. Confirmed
+// against https://docs.leonardo.ai/docs/ideogram-30.
+const IDEOGRAM_3_MODEL = "ideogram-v3.0";
 // Any model string in here gets routed to the v2 flow instead of the
 // classic v1 one. Set LEONARDO_MODEL_ID to one of these exact strings to
-// opt in. Add new v2-only models here as they're integrated.
-const V2_MODELS = new Set<string>([GPT_IMAGE_2_MODEL, FLUX_KONTEXT_PRO_MODEL, PHOENIX_MODEL]);
+// opt in. Add new v2-only models here as they're integrated — see
+// V2_MODEL_CONFIGS below for what else a new model needs.
+const V2_MODELS = new Set<string>([
+  GPT_IMAGE_2_MODEL,
+  FLUX_KONTEXT_PRO_MODEL,
+  PHOENIX_MODEL,
+  NANO_BANANA_PRO_MODEL,
+  IDEOGRAM_3_MODEL,
+]);
 const IMAGE_SIZE = { width: 1024, height: 1024 };
 // How strongly image-to-image generations should stick to the uploaded
 // reference photo (0 = ignore it, 1 = near-identical). Set high (not 1.0
@@ -51,9 +72,17 @@ const MAX_V2_REFERENCE_IMAGES = 4;
 // Leonardo's "Pro Color Photography" preset — biases v2 generations toward
 // realistic photography rather than the "Dynamic" style v2 defaults to when
 // no style_ids are sent, which tends to look more illustrated/stylized than
-// true product photography. Not sent for GPT Image 2, which doesn't
-// document a style_ids parameter at all.
+// true product photography. Only confirmed valid for FLUX Kontext — style_ids
+// catalogs are scoped per model on Leonardo's platform (an unrecognized style
+// id produces a generic, field-less "VALIDATION_ERROR" — confirmed the hard
+// way trying to reuse this for Phoenix), so don't reach for this for a new
+// model without checking its own docs page for a confirmed style id first.
 const PHOTOREAL_STYLE_ID = "7c3f932b-a572-47cb-9b9b-f20211e63b5b";
+// Leonardo's "Dynamic" style — confirmed (via each model's own docs example
+// request/style table) as a valid style id for Phoenix, Nano Banana Pro, and
+// Ideogram 3.0. Less strictly "photoreal" than PHOTOREAL_STYLE_ID, but actually verified for
+// these models, which PHOTOREAL_STYLE_ID isn't.
+const LEONARDO_DYNAMIC_STYLE_ID = "111dc692-d470-4eec-b791-3475abac4c46";
 // Templates keep an optional "--- NEGATIVE PROMPT ---" section (any number
 // of dashes, case-insensitive) so the Template Manager can edit negative
 // prompts as plain text too, without the templating engine needing to know
@@ -287,65 +316,131 @@ function sanitizeNegativePromptForV2(negativePrompt: string): string | undefined
 }
 
 /**
- * Shared request builder for every model in V2_MODELS. These live on
- * Leonardo's v2 generations endpoint (https://cloud.leonardo.ai/api/rest/v2/generations),
- * which has a completely different request shape from v1: `{ model,
- * parameters: {...} }` instead of flat top-level fields, and no
- * `modelId`/`negative_prompt` fields at all. Confirmed against Leonardo's
- * guides (docs.leonardo.ai/docs/gpt-image-2, docs.leonardo.ai/docs/flux-1-kontext-pro)
- * and published OpenAPI spec (docs.leonardo.ai/reference/creategeneration-1).
+ * Everything about a v2 model's request shape that differs from the others —
+ * see V2_MODEL_CONFIGS below for the actual per-model values, each sourced
+ * from that model's own Leonardo docs page. Adding a new v2 model means:
+ * add its model-id constant, add it to V2_MODELS, add a config row here
+ * (checking its own docs page for each of these fields — do NOT assume it
+ * matches an existing model, see PHOTOREAL_STYLE_ID's doc comment for why
+ * that assumption already broke once), and that's it — createGenerationV2
+ * itself never needs to change again for a model that fits this shape.
+ */
+interface V2ModelConfig {
+  /**
+   * "field": has a real `negative_prompt` request field (Phoenix). Used
+   * directly, no moderation-risk sanitization needed — same as v1.
+   * "prompt-injection": no such field exists (every third-party partner
+   * model seen so far), so negative-prompt intent gets folded into the end
+   * of the main prompt as `avoid: "..."` instead — the only way to get it
+   * in front of the model at all. Run through sanitizeNegativePromptForV2
+   * first: that text is scanned by the model's own moderation like any
+   * other prompt content, and a clause naming a body part purely to
+   * *exclude* it (e.g. "no hands") still reads as human/body-related
+   * content there — confirmed causing real NSFW-classification failures
+   * with this app's own templates once GPT Image 2 was in use.
+   */
+  negativePrompt: "field" | "prompt-injection";
+  /** Field name under `guidances` that reference images go under — not the same for every model (Phoenix uses `image_to_image`, everything else `image_reference`). */
+  referenceGuidanceKey: "image_reference" | "image_to_image";
+  /** Max reference images this model accepts in one request, per its own docs — capped further by however many of front/side/worn were actually uploaded. 0 means the model has no image-to-image support at all (Ideogram 3.0): the generation still runs, but purely as text-to-image. */
+  maxReferenceImages: number;
+  /** Whether each guidances.* image item includes a `strength` field — GPT Image 2 explicitly rejects one and decides strength on its own. */
+  referenceStrength: boolean;
+  /** Extra fixed `parameters` fields this model needs (style_ids, quality, etc.), verified against that model's own docs — merged in as-is. */
+  extraParameters?: Record<string, unknown>;
+}
+
+const V2_MODEL_CONFIGS: Record<string, V2ModelConfig> = {
+  // docs.leonardo.ai/docs/gpt-image-2
+  [GPT_IMAGE_2_MODEL]: {
+    negativePrompt: "prompt-injection",
+    referenceGuidanceKey: "image_reference",
+    maxReferenceImages: MAX_V2_REFERENCE_IMAGES,
+    referenceStrength: false,
+    extraParameters: { quality: "MEDIUM" },
+  },
+  // docs.leonardo.ai/docs/flux-1-kontext-pro
+  [FLUX_KONTEXT_PRO_MODEL]: {
+    negativePrompt: "prompt-injection",
+    referenceGuidanceKey: "image_reference",
+    maxReferenceImages: MAX_V2_REFERENCE_IMAGES,
+    referenceStrength: true,
+    extraParameters: { style_ids: [PHOTOREAL_STYLE_ID] },
+  },
+  // docs.leonardo.ai/docs/phoenix
+  [PHOENIX_MODEL]: {
+    negativePrompt: "field",
+    referenceGuidanceKey: "image_to_image",
+    maxReferenceImages: 1,
+    referenceStrength: true,
+    // No style_ids: PHOTOREAL_STYLE_ID isn't confirmed for Phoenix's own
+    // catalog (this exact assumption caused a real VALIDATION_ERROR) —
+    // omitted so it falls back to Phoenix's own documented default
+    // (LEONARDO_DYNAMIC_STYLE_ID) instead of risking another wrong id.
+  },
+  // docs.leonardo.ai/docs/nano-banana-pro — no negative_prompt field, no
+  // quality/mode field, style_ids present but with no confirmed default of
+  // its own; LEONARDO_DYNAMIC_STYLE_ID is what Leonardo's own example
+  // request for this exact model uses.
+  [NANO_BANANA_PRO_MODEL]: {
+    negativePrompt: "prompt-injection",
+    referenceGuidanceKey: "image_reference",
+    maxReferenceImages: 6,
+    referenceStrength: true,
+    extraParameters: { style_ids: [LEONARDO_DYNAMIC_STYLE_ID] },
+  },
+  // docs.leonardo.ai/docs/ideogram-30 — no negative_prompt field, no
+  // image-to-image support of any kind (see IDEOGRAM_3_MODEL's doc comment
+  // above), so referenceGuidanceKey/referenceStrength below are never
+  // actually used (maxReferenceImages: 0 means initImageIds always gets
+  // sliced down to empty before either matters). `quality: "QUALITY"` is
+  // this model's highest-photorealism tier (TURBO/BALANCED/QUALITY) — its
+  // own example request actually uses "MEDIUM", which isn't one of its
+  // three documented enum values; QUALITY is used here instead since photo-
+  // realism was explicitly asked for. style_ids uses the same
+  // LEONARDO_DYNAMIC_STYLE_ID confirmed via this model's own style table.
+  [IDEOGRAM_3_MODEL]: {
+    negativePrompt: "prompt-injection",
+    referenceGuidanceKey: "image_reference",
+    maxReferenceImages: 0,
+    referenceStrength: false,
+    extraParameters: { quality: "QUALITY", style_ids: [LEONARDO_DYNAMIC_STYLE_ID] },
+  },
+};
+
+/**
+ * Shared request builder for every model in V2_MODELS, driven by
+ * V2_MODEL_CONFIGS above. These live on Leonardo's v2 generations endpoint
+ * (https://cloud.leonardo.ai/api/rest/v2/generations), which has a
+ * completely different request shape from v1: `{ model, parameters: {...} }`
+ * instead of flat top-level fields, and no `modelId` field.
  *
- * Real feature losses versus the v1 models, inherent to these models on
- * Leonardo's platform, not a gap in this integration — except Phoenix,
- * which is the one exception to both:
- *  - No negative prompt support on GPT Image 2 or FLUX Kontext — there's no
- *    request field for it at all, so `params.negativePrompt` (when present)
- *    is instead appended to the end of `params.prompt` as `avoid: "..."`
- *    before it's sent, the only way to get that instruction in front of
- *    those two models. Phoenix, by contrast, has a real `negative_prompt`
- *    field (confirmed against docs.leonardo.ai/docs/phoenix) and uses it
- *    directly — sidesteps the moderation-risk reasoning behind
- *    sanitizeNegativePromptForV2 entirely for this model, the same way v1's
- *    dedicated field already does.
- *  - Reference-photo influence is a bucketed LOW/MID/HIGH strength
- *    (V2_IMAGE_REFERENCE_STRENGTH) rather than v1's continuous 0-1
- *    `init_strength` dial. GPT Image 2 goes a step further and ignores
- *    strength entirely — the model decides on its own.
- *
- * Unlike v1, GPT Image 2 and FLUX Kontext accept multiple reference images
- * in one request (`guidances.image_reference` is an array) — every uploaded
- * original (front/side/worn) is sent, not just one, so the model sees the
- * piece from every angle that was actually photographed. Phoenix instead
- * takes exactly one reference image under a *differently named* field,
- * `guidances.image_to_image` (docs.leonardo.ai/docs/phoenix) — sending it
- * under `image_reference` like the other two would silently be ignored.
- * Every reference image still goes through the same uploadReferenceImage()
- * v1 /init-image flow regardless of which v2 model ends up using it — the
- * returned image id is a platform-wide id, not a v1-specific one.
+ * Every uploaded original (front/side/worn) is sent as a separate reference
+ * image, up to whatever the model's own config.maxReferenceImages allows —
+ * each one goes through the same uploadReferenceImage() v1 /init-image flow
+ * regardless of which v2 model ends up using it; the returned image id is a
+ * platform-wide id, not a v1-specific one.
  */
 async function createGenerationV2(model: string, params: CreateGenerationParams): Promise<string> {
-  // See the doc comment above — Phoenix has a real negative_prompt field
-  // and skips the avoid:-text-injection path (and its
-  // sanitizeNegativePromptForV2 sanitization, which exists only to reduce
-  // moderation risk from that injection) entirely.
-  const usesRealNegativePrompt = model === PHOENIX_MODEL;
+  const config = V2_MODEL_CONFIGS[model];
+  if (!config) {
+    throw new Error(
+      `Leonardo v2 model "${model}" has no request config — add one to V2_MODEL_CONFIGS in services/leonardo.ts (see that constant's doc comment).`
+    );
+  }
+
+  const usesRealNegativePrompt = config.negativePrompt === "field";
   const safeNegativePrompt =
     !usesRealNegativePrompt && params.negativePrompt ? sanitizeNegativePromptForV2(params.negativePrompt) : undefined;
   const prompt = safeNegativePrompt ? `${params.prompt}\n\navoid: "${safeNegativePrompt}"` : params.prompt;
 
-  // Phoenix's guidances.image_to_image takes exactly one image — see the
-  // doc comment above — everything else here allows up to
-  // MAX_V2_REFERENCE_IMAGES.
-  const imageIds = (params.initImageIds ?? []).slice(0, model === PHOENIX_MODEL ? 1 : MAX_V2_REFERENCE_IMAGES);
-  const referenceGuidanceKey = model === PHOENIX_MODEL ? "image_to_image" : "image_reference";
+  const imageIds = (params.initImageIds ?? []).slice(0, config.maxReferenceImages);
   const referenceGuidance =
     imageIds.length > 0
       ? imageIds.map((id) =>
-          // GPT Image 2 explicitly doesn't accept a `strength` field on its
-          // image references — see the comment above.
-          model === GPT_IMAGE_2_MODEL
-            ? { image: { id, type: "UPLOADED" } }
-            : { image: { id, type: "UPLOADED" }, strength: V2_IMAGE_REFERENCE_STRENGTH }
+          config.referenceStrength
+            ? { image: { id, type: "UPLOADED" }, strength: V2_IMAGE_REFERENCE_STRENGTH }
+            : { image: { id, type: "UPLOADED" } }
         )
       : undefined;
 
@@ -362,9 +457,9 @@ async function createGenerationV2(model: string, params: CreateGenerationParams)
           width: IMAGE_SIZE.width,
           height: IMAGE_SIZE.height,
           prompt_enhance: "OFF",
-          ...(model === GPT_IMAGE_2_MODEL ? { quality: "MEDIUM" } : { style_ids: [PHOTOREAL_STYLE_ID] }),
+          ...config.extraParameters,
           ...(usesRealNegativePrompt && params.negativePrompt ? { negative_prompt: params.negativePrompt } : {}),
-          ...(referenceGuidance ? { guidances: { [referenceGuidanceKey]: referenceGuidance } } : {}),
+          ...(referenceGuidance ? { guidances: { [config.referenceGuidanceKey]: referenceGuidance } } : {}),
         },
       }),
     },
