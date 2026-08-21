@@ -86,15 +86,18 @@ export function computeRawPrice(inputs: PriceInputs): number {
 }
 
 /**
- * Charm-pricing rounding: nearest ₹100, then ₹1 under it (e.g. 4,230 → 4,199;
- * 380 → 399; 950 → 999) — confirmed against explicit examples rather than a
- * plain "round to nearest ₹X" rule. Floors at ₹99 for any raw price small
- * enough to round down to ₹0, so this never returns a non-positive price.
+ * Charm-pricing rounding: UP to the next ₹100, then ₹1 under it (e.g.
+ * 4,230 → 4,299; 380 → 399; 950 → 999; 4,200 → 4,199) — always rounds up,
+ * never down, so the final sticker price is never less than the raw
+ * computed cost (rounding to the *nearest* hundred could round a raw price
+ * like 4,230 down to 4,199, undercharging by 31). Floors at ₹99 for any raw
+ * price small enough to round up to ₹0 or less, so this never returns a
+ * non-positive price.
  */
 export function roundToCharmPrice(rawPrice: number): number {
   if (rawPrice <= 0) return 0;
-  const nearestHundred = Math.round(rawPrice / 100) * 100;
-  return Math.max(nearestHundred, 100) - 1;
+  const nextHundred = Math.ceil(rawPrice / 100) * 100;
+  return Math.max(nextHundred, 100) - 1;
 }
 
 export function computeFinalPrice(inputs: PriceInputs): number {
