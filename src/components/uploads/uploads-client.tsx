@@ -28,6 +28,7 @@ import {
   type PoolPhotoAngle,
 } from "@/hooks/use-pool-photos";
 import type { ProductType } from "@/types/product";
+import { PhotoCropDialog } from "@/components/uploads/photo-crop-dialog";
 
 const ANGLE_LABEL = Object.fromEntries(POOL_PHOTO_ANGLES.map((a) => [a.value, a.label])) as Record<
   PoolPhotoAngle,
@@ -45,6 +46,8 @@ export function UploadsClient() {
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
+
+  const [cropQueue, setCropQueue] = useState<File[] | null>(null);
 
   const { data: photos, isLoading, isError, error, refetch, isFetching } = usePoolPhotos();
   const upload = useUploadPoolPhotos();
@@ -66,9 +69,13 @@ export function UploadsClient() {
     });
   }
 
-  async function handleFilesPicked(fileList: FileList | null) {
+  function handleFilesPicked(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
-    const files = Array.from(fileList);
+    setCropQueue(Array.from(fileList));
+  }
+
+  async function handleCropComplete(files: File[]) {
+    setCropQueue(null);
     try {
       await upload.mutateAsync({ files, batchLabel, productType: productType, uploadedBy, notes });
       toast.success(`${files.length} photo${files.length > 1 ? "s" : ""} uploaded`, {
@@ -259,6 +266,10 @@ export function UploadsClient() {
           </div>
         )}
       </div>
+
+      {cropQueue ? (
+        <PhotoCropDialog files={cropQueue} onComplete={handleCropComplete} onCancel={() => setCropQueue(null)} />
+      ) : null}
     </div>
   );
 }

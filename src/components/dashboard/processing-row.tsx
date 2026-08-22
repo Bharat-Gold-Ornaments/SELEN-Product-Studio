@@ -17,7 +17,7 @@ export function ProcessingRow({ product }: { product: ProductRecord }) {
 
   return (
     <div className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-      <ProductThumb category={product.category} />
+      <ProductThumb category={product.category} imageUrl={product.closeupImageLink} />
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm font-medium text-foreground">
           {product.title}
