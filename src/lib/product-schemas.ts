@@ -9,7 +9,16 @@ export const HOOK_TYPE_OPTIONS = [
   "French Hook",
   "Huggie",
   "Clip-On",
+  "Screw Back",
+  "Fish Hook",
+  "Threader",
+  "Omega Back",
+  "Kidney Wire",
+  "Latch Back",
 ] as const;
+
+/** Sentinel value for a "select-custom" field's "Other (specify)" option — never a real option value itself, so it can't collide with a real hook type. */
+export const CUSTOM_OPTION_VALUE = "__custom__";
 
 export const RING_SIZE_OPTIONS = Array.from({ length: 19 }, (_, i) => {
   const size = 4 + i * 0.5; // 4 -> 13 in half sizes
@@ -139,13 +148,17 @@ export type ProductFormValues =
 export type ExtraFieldConfig =
   | { name: string; label: string; type: "number"; step: string; suffix?: string }
   | { name: string; label: string; type: "select"; options: readonly string[] }
+  // Like "select", but the option list includes a synthetic "Other
+  // (specify)" entry (CUSTOM_OPTION_VALUE) — picking it reveals a free-text
+  // input instead, for a value that isn't in the preset list.
+  | { name: string; label: string; type: "select-custom"; options: readonly string[] }
   | { name: string; label: string; type: "switch" };
 
 export const EXTRA_FIELDS: Record<ProductType, ExtraFieldConfig[]> = {
   earrings: [
     { name: "lengthCm", label: "Length (cm)", type: "number", step: "any" },
     { name: "widthCm", label: "Width (cm)", type: "number", step: "any" },
-    { name: "hookType", label: "Hook Type", type: "select", options: HOOK_TYPE_OPTIONS },
+    { name: "hookType", label: "Hook Type", type: "select-custom", options: HOOK_TYPE_OPTIONS },
   ],
   ring: [
     { name: "ringSize", label: "Ring Size (optional)", type: "select", options: RING_SIZE_OPTIONS },

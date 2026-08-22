@@ -10,6 +10,7 @@ import { Loader2, Sparkles } from "lucide-react";
 import {
   PRODUCT_SCHEMAS,
   EXTRA_FIELDS,
+  CUSTOM_OPTION_VALUE,
   defaultValuesFor,
   type ProductFormValues,
 } from "@/lib/product-schemas";
@@ -94,6 +95,12 @@ export function DynamicProductForm({ productType }: DynamicProductFormProps) {
     {}
   );
   const [pickerSlot, setPickerSlot] = useState<"front" | "side" | "worn" | null>(null);
+
+  // Which "select-custom" fields (by name) currently have their "Other
+  // (specify)" option chosen — the field's own RHF value holds whatever the
+  // user actually types in that case, this only tracks which UI mode
+  // (dropdown vs. free-text input) is currently showing for it.
+  const [customFields, setCustomFields] = useState<Set<string>>(() => new Set());
 
   function handlePoolPick(slot: "front" | "side" | "worn", photo: PoolPhoto) {
     setPoolPhotos((prev) => ({ ...prev, [slot]: { fileId: photo.fileId, publicUrl: photo.publicUrl } }));
@@ -296,6 +303,64 @@ export function DynamicProductForm({ productType }: DynamicProductFormProps) {
                           ))}
                         </SelectContent>
                       </Select>
+                    )}
+                  />
+                </FormField>
+              );
+            }
+
+            if (extraField.type === "select-custom") {
+              const isCustom = customFields.has(extraField.name);
+              return (
+                <FormField
+                  key={extraField.name}
+                  label={extraField.label}
+                  htmlFor={extraField.name}
+                  error={fieldErrors[extraField.name]?.message}
+                >
+                  <Controller
+                    name={extraField.name as FieldPath<ProductFormValues>}
+                    control={control}
+                    render={({ field }) => (
+                      <div className="flex flex-col gap-2">
+                        <Select
+                          value={isCustom ? CUSTOM_OPTION_VALUE : ((field.value as string) ?? "")}
+                          onValueChange={(value) => {
+                            if (value === CUSTOM_OPTION_VALUE) {
+                              setCustomFields((prev) => new Set(prev).add(extraField.name));
+                              field.onChange("");
+                            } else {
+                              setCustomFields((prev) => {
+                                if (!prev.has(extraField.name)) return prev;
+                                const next = new Set(prev);
+                                next.delete(extraField.name);
+                                return next;
+                              });
+                              field.onChange(value);
+                            }
+                          }}
+                        >
+                          <SelectTrigger id={extraField.name}>
+                            <SelectValue placeholder={`Select ${extraField.label.toLowerCase()}`} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {extraField.options.map((option) => (
+                              <SelectItem key={option} value={option}>
+                                {option}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value={CUSTOM_OPTION_VALUE}>Other (specify)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {isCustom ? (
+                          <Input
+                            autoFocus
+                            placeholder={`Enter a custom ${extraField.label.toLowerCase()}`}
+                            value={(field.value as string) ?? ""}
+                            onChange={(e) => field.onChange(e.target.value)}
+                          />
+                        ) : null}
+                      </div>
                     )}
                   />
                 </FormField>

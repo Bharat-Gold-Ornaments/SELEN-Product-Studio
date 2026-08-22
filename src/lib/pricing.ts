@@ -62,13 +62,14 @@ export interface PriceInputs {
 }
 
 /**
- * The four formulas from the spec, applied exactly as specified — including
- * the one asymmetry worth calling out: in Case B with per-gram making
- * charge, the making charge is calculated on Gross Weight (not Net), since
- * setting/finishing labor applies to the full piece including the
- * stone-setting work, while the metal cost itself is still Net Weight ×
- * Rate. Returns the raw (unrounded) price — see roundToCharmPrice for the
- * final sticker-price rounding step.
+ * The four formulas from the spec, applied exactly as specified. Per-gram
+ * making charge is always computed on Net Weight, in both cases — in Case A
+ * that's the same value as Gross Weight anyway (gross === net is how Case A
+ * gets detected in the first place), and in Case B it deliberately excludes
+ * the stone/pearl weight, since that weight is already priced on its own
+ * via the stone/pearl line items — charging labor on gross weight too would
+ * bill the stones' weight twice. Returns the raw (unrounded) price — see
+ * roundToCharmPrice for the final sticker-price rounding step.
  */
 export function computeRawPrice(inputs: PriceInputs): number {
   const pricingCase = detectPricingCase(inputs.grossWeightGrams, inputs.netWeightGrams);
@@ -82,7 +83,7 @@ export function computeRawPrice(inputs: PriceInputs): number {
   const stoneCharges = sumStoneCharges(inputs.stoneLineItems);
   return inputs.makingChargeMode === "flat"
     ? inputs.netWeightGrams * inputs.ratePerGram + inputs.makingChargeValue + stoneCharges
-    : inputs.netWeightGrams * inputs.ratePerGram + inputs.grossWeightGrams * inputs.makingChargeValue + stoneCharges;
+    : inputs.netWeightGrams * inputs.ratePerGram + inputs.netWeightGrams * inputs.makingChargeValue + stoneCharges;
 }
 
 /**
