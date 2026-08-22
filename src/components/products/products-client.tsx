@@ -134,7 +134,7 @@ export function ProductsClient() {
                 href={`/products/${product.productId}/review`}
                 className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
               >
-                <ProductThumb category={product.category} />
+                <ProductThumb category={product.category} imageUrl={product.closeupImageLink} />
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-sm font-medium text-foreground">{product.title}</span>
                   <span className="text-xs text-muted-foreground">
