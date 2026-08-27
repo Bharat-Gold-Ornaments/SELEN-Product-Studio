@@ -17,6 +17,8 @@ interface ReviewSectionProps {
   result: CategoryGenerationResult;
   selectedUrl: string | undefined;
   onSelect: (url: string) => void;
+  /** Clears this category's pick entirely — called when the already-selected tile is clicked again. */
+  onDeselect: () => void;
   onRegenerate: () => void;
   isRegenerating: boolean;
   /** The category's manual-upload slot — see hooks/use-generation.ts's GenerationSession.manualUploads doc comment. */
@@ -61,6 +63,7 @@ export function ReviewSection({
   result,
   selectedUrl,
   onSelect,
+  onDeselect,
   onRegenerate,
   isRegenerating,
   manualImageUrl,
@@ -115,6 +118,7 @@ export function ReviewSection({
                     badge="AI"
                     isSelected={selectedUrl === url}
                     onSelect={() => onSelect(url)}
+                    onDeselect={onDeselect}
                     onExpand={() => setLightboxUrl(url)}
                   />
                 ))
@@ -127,6 +131,7 @@ export function ReviewSection({
                 badge="Uploaded"
                 isSelected={selectedUrl === manualImageUrl}
                 onSelect={() => onSelect(manualImageUrl)}
+                onDeselect={onDeselect}
                 onExpand={() => setLightboxUrl(manualImageUrl)}
                 onRemove={onRemoveUpload}
               />
@@ -207,6 +212,7 @@ function ImageTile({
   badge,
   isSelected,
   onSelect,
+  onDeselect,
   onExpand,
   onRemove,
 }: {
@@ -215,6 +221,7 @@ function ImageTile({
   badge: "AI" | "Uploaded";
   isSelected: boolean;
   onSelect: () => void;
+  onDeselect: () => void;
   onExpand: () => void;
   onRemove?: () => void;
 }) {
@@ -225,7 +232,13 @@ function ImageTile({
         isSelected ? "border-primary" : "border-transparent hover:border-border"
       )}
     >
-      <button type="button" onClick={onSelect} aria-pressed={isSelected} className="absolute inset-0">
+      <button
+        type="button"
+        onClick={isSelected ? onDeselect : onSelect}
+        aria-pressed={isSelected}
+        aria-label={isSelected ? `Deselect this ${label} photo` : `Select this ${label} photo`}
+        className="absolute inset-0"
+      >
         <Image src={url} alt={label} fill unoptimized className="object-cover" />
       </button>
 

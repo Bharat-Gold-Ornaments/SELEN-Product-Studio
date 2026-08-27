@@ -143,6 +143,21 @@ export function ReviewClient({ productId }: { productId: string }) {
     });
   }
 
+  // Clicking an already-selected tile clears that category's pick entirely
+  // (rather than forcing a different one) — a category is allowed to go
+  // unpicked (see hasSelection below), so this just lets that same "no pick
+  // yet" state be reached again after one was made, not only before.
+  function deselectImage(category: ImageCategory) {
+    setSession((prev) => {
+      if (!prev) return prev;
+      const selected = { ...prev.selected };
+      delete selected[category];
+      const next = { ...prev, selected };
+      setGenerationSession(queryClient, productId, next);
+      return next;
+    });
+  }
+
   async function handleRegenerate(category: ImageCategory) {
     if (!session) return;
     addCategory(setRegeneratingCategories, category);
@@ -286,13 +301,14 @@ export function ReviewClient({ productId }: { productId: string }) {
       await saveCopy.mutateAsync({
         productId,
         ...session.copy,
-        // Only whichever categories actually got a pick — session.selected
-        // simply has no key for a skipped/unpicked category, and that
-        // `undefined` is what tells the PATCH route to leave it out rather
-        // than send an empty placeholder. See that route's schema comment.
-        heroImageLink: session.selected.hero,
-        lifestyleImageLink: session.selected.lifestyle,
-        closeupImageLink: session.selected.closeup,
+        // Sent explicitly as "" (not omitted) for any category with no
+        // current pick — Continue is the one moment the user has approved
+        // exactly which image wins each category, including a category
+        // that *used* to have a pick and was just deselected, so that has
+        // to actively clear whatever's already saved, not leave it alone.
+        heroImageLink: session.selected.hero ?? "",
+        lifestyleImageLink: session.selected.lifestyle ?? "",
+        closeupImageLink: session.selected.closeup ?? "",
       });
       queryClient.invalidateQueries({ queryKey: ["products-list"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-data"] });
@@ -357,6 +373,7 @@ export function ReviewClient({ productId }: { productId: string }) {
               result={result}
               selectedUrl={session.selected[category]}
               onSelect={(url) => selectImage(category, url)}
+              onDeselect={() => deselectImage(category)}
               onRegenerate={() => handleRegenerate(category)}
               isRegenerating={regeneratingCategories.has(category)}
               manualImageUrl={session.manualUploads[category]}

@@ -478,7 +478,14 @@ export function useRegenerateCopyField() {
 
 interface SaveCopyInput extends ProductCopy {
   productId: string;
-  /** The picked image URL per category — see the PATCH schema's doc comment in api/products/[productId]/copy/route.ts for why omitted (not "") matters. */
+  /**
+   * The picked image URL per category, or "" for a deselected/unpicked one.
+   * Optional here (and in the PATCH schema) only so a hypothetical
+   * copy-only caller could omit these without clobbering an already-saved
+   * pick — review-client.tsx's Continue, the one real caller, always sends
+   * all three explicitly, since it's the moment the user's current
+   * selection (including a fresh deselect) should become the saved state.
+   */
   heroImageLink?: string;
   lifestyleImageLink?: string;
   closeupImageLink?: string;
