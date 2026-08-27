@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { findProduct, deleteProductRow } from "@/services/google-sheets";
 import { deleteProductFolder } from "@/services/google-drive";
+import { getShopifyProductStatus } from "@/services/shopify";
 
 /**
  * A single product's full Sheet row — what the Finalize screen loads
@@ -29,11 +30,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
 
 /**
  * Deletes a product entirely — its Drive folder (originals + generated
- * images) and its Sheet row. Refuses to delete anything already published to
- * Shopify (`shopifyProductId` set): this app has no Shopify-side delete
- * integration, so removing the local record would just orphan the Shopify
- * draft with nothing here still tracking it. Those have to be removed from
- * Shopify admin first, which the caller can't do from here anyway.
+ * images) and its Sheet row. This app has no Shopify-side delete
+ * integration, so a product that's still Active on Shopify is refused: the
+ * local record is Shopify's only link back to the listing, and removing it
+ * would orphan the live product with nothing here still tracking it. Once
+ * it's Archived or set to Draft in Shopify admin (or removed from Shopify
+ * entirely), that risk is gone, so deletion here is allowed — this is
+ * checked live against Shopify on every DELETE rather than trusting any
+ * locally-cached status, since Shopify's status can change without this app
+ * ever being told.
  *
  * Drive deletion runs first and is best-effort (failures are logged, not
  * fatal) — deleteProductFolder is a no-op if the folder's already gone, so a
@@ -55,13 +60,27 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const { record } = lookup;
 
   if (record.shopifyProductId) {
-    return NextResponse.json(
-      {
-        error:
-          "This product is already published to Shopify — remove it from Shopify admin first, then delete it here.",
-      },
-      { status: 409 }
-    );
+    let status: Awaited<ReturnType<typeof getShopifyProductStatus>>;
+    try {
+      status = await getShopifyProductStatus(record.shopifyProductId);
+    } catch (error) {
+      console.error(`Couldn't check Shopify status for product ${productId}`, error);
+      return NextResponse.json(
+        { error: "Couldn't verify this product's status on Shopify — try again in a moment." },
+        { status: 502 }
+      );
+    }
+
+    if (status === "ACTIVE") {
+      return NextResponse.json(
+        {
+          error:
+            "This product is still Active on Shopify — archive it or set it to Draft in Shopify admin before deleting it here.",
+        },
+        { status: 409 }
+      );
+    }
+    // status is "ARCHIVED", "DRAFT", or null (removed from Shopify admin entirely) — safe to delete here too.
   }
 
   await deleteProductFolder(record.category, productId).catch((error) => {

@@ -730,3 +730,26 @@ export async function updateShopifyProductPrice(input: UpdateShopifyPriceInput):
     assertNoUserErrors(metafieldData.metafieldsSet.userErrors, "metafieldsSet (weight sync)");
   }
 }
+
+// ── Delete gating ────────────────────────────────────────────────────────
+
+export type ShopifyProductStatus = "ACTIVE" | "ARCHIVED" | "DRAFT";
+
+/**
+ * Live status of a product on Shopify, or null if Shopify has no record of
+ * it at all (removed from admin entirely, not just archived/drafted). Used
+ * by the product DELETE route (src/app/api/products/[productId]/route.ts)
+ * to decide whether it's safe to delete the local record: this app has no
+ * way to remove a product from Shopify itself, so it only allows deleting
+ * its own copy once Shopify confirms the listing is no longer Active there.
+ */
+export async function getShopifyProductStatus(shopifyProductId: string): Promise<ShopifyProductStatus | null> {
+  const productGid = productGidFromNumericId(shopifyProductId);
+  const data = await shopifyGraphQL<{ product: { status: ShopifyProductStatus } | null }>(
+    `query getProductStatus($id: ID!) {
+      product(id: $id) { status }
+    }`,
+    { id: productGid }
+  );
+  return data.product?.status ?? null;
+}

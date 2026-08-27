@@ -17,10 +17,10 @@ import type { ProductRecord } from "@/types/product";
 /**
  * Per-row "..." menu with a Delete action, shared by the /products table and
  * the /dashboard summary lists (the only two places a product row appears).
- * Deleting a published product is refused server-side (see the DELETE
- * route's doc comment) — that's surfaced here as a toast rather than hidden
- * from the menu, so the user finds out why rather than the option just not
- * being there.
+ * Deleting a product that's still Active on Shopify is refused server-side
+ * (see the DELETE route's doc comment) — that's surfaced here as a toast
+ * rather than hidden from the menu, since whether it's allowed depends on a
+ * live Shopify status check this menu doesn't have up front.
  *
  * Stops click propagation everywhere, since every row this renders inside is
  * itself a click target (a Link in products-client.tsx) — without that,
