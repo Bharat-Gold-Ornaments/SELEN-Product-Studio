@@ -137,13 +137,40 @@ export function CopySection({ productId, variables, copy, onCopyChange, heroImag
     );
   }
 
+  // Disables every per-field Regenerate button while "Regenerate All" is
+  // running (and vice versa, via generateAll.isPending below) — otherwise a
+  // per-field regenerate could land its onCopyChange in the middle of
+  // Regenerate All's own five-field response, clobbering whichever finishes
+  // last. Same race this app already hit once with Review's per-category
+  // image Regenerate buttons sharing one loading flag.
+  const anyFieldRegenerating = regeneratingField !== null;
+
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle>Product Copy</CardTitle>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleGenerateAll}
+          disabled={generateAll.isPending || anyFieldRegenerating}
+        >
+          {generateAll.isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5" />
+          )}
+          Regenerate All
+        </Button>
       </CardHeader>
       <CardContent className="flex flex-col gap-5 pt-0">
-        <FieldRow label="Title" field="title" isRegenerating={regeneratingField === "title"} onRegenerate={handleRegenerateField}>
+        <FieldRow
+          label="Title"
+          field="title"
+          isRegenerating={regeneratingField === "title"}
+          disabled={generateAll.isPending}
+          onRegenerate={handleRegenerateField}
+        >
           <Input value={copy.title} onChange={(e) => onCopyChange({ ...copy, title: e.target.value })} />
         </FieldRow>
 
@@ -151,6 +178,7 @@ export function CopySection({ productId, variables, copy, onCopyChange, heroImag
           label="Description"
           field="description"
           isRegenerating={regeneratingField === "description"}
+          disabled={generateAll.isPending}
           onRegenerate={handleRegenerateField}
         >
           <Textarea
@@ -160,7 +188,13 @@ export function CopySection({ productId, variables, copy, onCopyChange, heroImag
           />
         </FieldRow>
 
-        <FieldRow label="Tags" field="tags" isRegenerating={regeneratingField === "tags"} onRegenerate={handleRegenerateField}>
+        <FieldRow
+          label="Tags"
+          field="tags"
+          isRegenerating={regeneratingField === "tags"}
+          disabled={generateAll.isPending}
+          onRegenerate={handleRegenerateField}
+        >
           <Input
             value={copy.tags.join(", ")}
             onChange={(e) =>
@@ -173,7 +207,13 @@ export function CopySection({ productId, variables, copy, onCopyChange, heroImag
           />
         </FieldRow>
 
-        <FieldRow label="SEO" field="seo" isRegenerating={regeneratingField === "seo"} onRegenerate={handleRegenerateField}>
+        <FieldRow
+          label="SEO"
+          field="seo"
+          isRegenerating={regeneratingField === "seo"}
+          disabled={generateAll.isPending}
+          onRegenerate={handleRegenerateField}
+        >
           <div className="flex flex-col gap-2">
             <div>
               <Label className="text-xs text-muted-foreground">SEO title</Label>
@@ -197,6 +237,7 @@ export function CopySection({ productId, variables, copy, onCopyChange, heroImag
           label="Collections"
           field="collections"
           isRegenerating={regeneratingField === "collections"}
+          disabled={generateAll.isPending}
           onRegenerate={handleRegenerateField}
         >
           <TagInput
@@ -214,12 +255,15 @@ function FieldRow({
   label,
   field,
   isRegenerating,
+  disabled,
   onRegenerate,
   children,
 }: {
   label: string;
   field: CopyField;
   isRegenerating: boolean;
+  /** True while some other regenerate (Regenerate All, in practice) is in flight — this field's own button is also disabled then, on top of isRegenerating. */
+  disabled?: boolean;
   onRegenerate: (field: CopyField) => void;
   children: React.ReactNode;
 }) {
@@ -232,7 +276,7 @@ function FieldRow({
           size="sm"
           className="h-6 px-2 text-xs text-muted-foreground"
           onClick={() => onRegenerate(field)}
-          disabled={isRegenerating}
+          disabled={isRegenerating || disabled}
         >
           {isRegenerating ? (
             <Loader2 className="h-3 w-3 animate-spin" />

@@ -171,11 +171,11 @@ export const EXTRA_FIELDS: Record<ProductType, ExtraFieldConfig[]> = {
   ],
   necklace: [
     { name: "lengthCm", label: "Length (cm)", type: "number", step: "any" },
-    { name: "claspType", label: "Clasp Type", type: "select", options: CLASP_TYPE_OPTIONS },
+    { name: "claspType", label: "Clasp Type", type: "select-custom", options: CLASP_TYPE_OPTIONS },
   ],
   bracelet: [
     { name: "lengthCm", label: "Length (cm)", type: "number", step: "any" },
-    { name: "claspType", label: "Clasp Type", type: "select", options: CLASP_TYPE_OPTIONS },
+    { name: "claspType", label: "Clasp Type", type: "select-custom", options: CLASP_TYPE_OPTIONS },
   ],
 };
 
