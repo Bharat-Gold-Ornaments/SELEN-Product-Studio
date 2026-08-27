@@ -48,6 +48,39 @@ export function usePublishProduct() {
   });
 }
 
+interface SyncListingResult {
+  listingSyncStatus: "synced";
+  listingSyncedAt: string;
+}
+
+/**
+ * Re-pushes title/description/tags/SEO/photos to an already-published
+ * product's live Shopify listing — Finalize's "Update Shopify Listing"
+ * button, for edits made on Review after the initial Publish. See
+ * api/products/[productId]/sync/route.ts. Invalidates this product's own
+ * query (so the refreshed listingSyncStatus/listingSyncedAt show up) plus
+ * the two list views, same as useDeleteProduct below.
+ */
+export function useSyncProductListing() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (productId: string) => {
+      const res = await fetch(`/api/products/${productId}/sync`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "Couldn't update the Shopify listing.");
+      }
+      return (await res.json()) as SyncListingResult;
+    },
+    onSuccess: (_data, productId) => {
+      queryClient.invalidateQueries({ queryKey: ["product", productId] });
+      queryClient.invalidateQueries({ queryKey: ["products-list"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-data"] });
+    },
+  });
+}
+
 /**
  * Deletes a product — its Drive images and Sheet row (see the DELETE
  * handler in api/products/[productId]/route.ts; refuses anything already

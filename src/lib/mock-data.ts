@@ -43,6 +43,8 @@ export const MOCK_PRODUCTS: ProductRecord[] = [
     manualPriceOverride: false,
     priceSyncStatus: "",
     priceSyncedAt: "",
+    listingSyncStatus: "",
+    listingSyncedAt: "",
   },
   {
     productId: "SP-1041",
@@ -79,6 +81,8 @@ export const MOCK_PRODUCTS: ProductRecord[] = [
     manualPriceOverride: false,
     priceSyncStatus: "",
     priceSyncedAt: "",
+    listingSyncStatus: "",
+    listingSyncedAt: "",
   },
   {
     productId: "SP-1040",
@@ -115,6 +119,8 @@ export const MOCK_PRODUCTS: ProductRecord[] = [
     manualPriceOverride: false,
     priceSyncStatus: "",
     priceSyncedAt: "",
+    listingSyncStatus: "",
+    listingSyncedAt: "",
   },
   {
     productId: "SP-1039",
@@ -151,6 +157,8 @@ export const MOCK_PRODUCTS: ProductRecord[] = [
     manualPriceOverride: false,
     priceSyncStatus: "",
     priceSyncedAt: "",
+    listingSyncStatus: "",
+    listingSyncedAt: "",
   },
   {
     productId: "SP-1038",
@@ -187,6 +195,8 @@ export const MOCK_PRODUCTS: ProductRecord[] = [
     manualPriceOverride: false,
     priceSyncStatus: "",
     priceSyncedAt: "",
+    listingSyncStatus: "",
+    listingSyncedAt: "",
   },
   {
     productId: "SP-1037",
@@ -223,6 +233,8 @@ export const MOCK_PRODUCTS: ProductRecord[] = [
     manualPriceOverride: false,
     priceSyncStatus: "",
     priceSyncedAt: "",
+    listingSyncStatus: "",
+    listingSyncedAt: "",
   },
   {
     productId: "SP-1036",
@@ -259,6 +271,8 @@ export const MOCK_PRODUCTS: ProductRecord[] = [
     manualPriceOverride: false,
     priceSyncStatus: "",
     priceSyncedAt: "",
+    listingSyncStatus: "",
+    listingSyncedAt: "",
   },
   {
     productId: "SP-1035",
@@ -295,6 +309,8 @@ export const MOCK_PRODUCTS: ProductRecord[] = [
     manualPriceOverride: false,
     priceSyncStatus: "",
     priceSyncedAt: "",
+    listingSyncStatus: "",
+    listingSyncedAt: "",
   },
   {
     productId: "SP-1034",
@@ -331,6 +347,8 @@ export const MOCK_PRODUCTS: ProductRecord[] = [
     manualPriceOverride: false,
     priceSyncStatus: "",
     priceSyncedAt: "",
+    listingSyncStatus: "",
+    listingSyncedAt: "",
   },
   {
     productId: "SP-1033",
@@ -367,5 +385,7 @@ export const MOCK_PRODUCTS: ProductRecord[] = [
     manualPriceOverride: false,
     priceSyncStatus: "",
     priceSyncedAt: "",
+    listingSyncStatus: "",
+    listingSyncedAt: "",
   },
 ];

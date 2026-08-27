@@ -116,4 +116,12 @@ export interface ProductRecord {
   /** "synced" once `price` has been successfully pushed to Shopify, "out_of_sync" if a push failed, "" before the product is ever published. */
   priceSyncStatus: "synced" | "out_of_sync" | "";
   priceSyncedAt: string;
+  // ── Post-publish listing sync (title/description/tags/SEO/photos) ───────
+  // Separate from priceSyncStatus above since the two sync independently —
+  // editing pricing doesn't touch the listing content and vice versa. "" is
+  // the state for the entire lifetime of a product before its first
+  // post-publish edit (initial Publish already sends this content once, but
+  // that's not tracked as a "sync" here, only re-pushes after are).
+  listingSyncStatus: "synced" | "out_of_sync" | "";
+  listingSyncedAt: string;
 }

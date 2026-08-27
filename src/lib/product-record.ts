@@ -50,6 +50,8 @@ export function buildDraftProductRecord(productId: string, values: ProductFormVa
     manualPriceOverride: false,
     priceSyncStatus: "" as const,
     priceSyncedAt: "",
+    listingSyncStatus: "" as const,
+    listingSyncedAt: "",
   };
 
   switch (values.productType) {

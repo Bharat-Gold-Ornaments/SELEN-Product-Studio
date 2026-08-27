@@ -4,14 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, ExternalLink, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ExternalLink, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { PageShell } from "@/components/layout/page-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { useProduct, usePublishProduct } from "@/hooks/use-product";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { useProduct, usePublishProduct, useSyncProductListing } from "@/hooks/use-product";
 import { useAppSettings } from "@/hooks/use-settings";
 import { PricingPanel } from "@/components/pricing/pricing-panel";
 import { IMAGE_CATEGORY_LABELS } from "@/lib/constants";
@@ -30,9 +31,11 @@ export function FinalizeClient({ productId }: { productId: string }) {
   const productQuery = useProduct(productId);
   const settingsQuery = useAppSettings();
   const publish = usePublishProduct();
+  const syncListing = useSyncProductListing();
 
   const [price, setPrice] = useState("");
   const [inventory, setInventory] = useState("");
+  const [syncConfirmOpen, setSyncConfirmOpen] = useState(false);
   // Only seed the fields once, the first time the record loads — otherwise
   // a background refetch (React Query's default behavior) would stomp on
   // whatever the user is mid-typing.
@@ -103,6 +106,16 @@ export function FinalizeClient({ productId }: { productId: string }) {
       });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Publishing failed.");
+    }
+  }
+
+  async function handleSyncListing() {
+    try {
+      await syncListing.mutateAsync(productId);
+      toast.success("Shopify listing updated.");
+      setSyncConfirmOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn't update the Shopify listing.");
     }
   }
 
@@ -180,8 +193,27 @@ export function FinalizeClient({ productId }: { productId: string }) {
           </Button>
         </div>
       ) : alreadyPublished ? (
-        <div className="rounded-2xl border border-success/30 bg-success/5 px-4 py-3 text-sm text-success">
-          Already sent to Shopify as a draft (Product ID: {record.shopifyProductId}).
+        <div className="flex flex-col gap-3 rounded-2xl border border-success/30 bg-success/5 px-4 py-3 text-sm">
+          <span className="flex items-center gap-2 text-success">
+            <CheckCircle2 className="h-4 w-4" />
+            Already sent to Shopify as a draft (Product ID: {record.shopifyProductId}).
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            {record.listingSyncStatus === "out_of_sync" ? (
+              <Badge variant="warning">Listing out of sync</Badge>
+            ) : record.listingSyncStatus === "synced" ? (
+              <Badge variant="success">Listing synced</Badge>
+            ) : null}
+            {record.listingSyncedAt ? (
+              <span className="text-xs text-muted-foreground">
+                Last synced {new Date(record.listingSyncedAt).toLocaleString()}
+              </span>
+            ) : null}
+            <Button variant="outline" size="sm" onClick={() => setSyncConfirmOpen(true)}>
+              <RefreshCw className="h-3.5 w-3.5" />
+              Update Shopify Listing
+            </Button>
+          </div>
         </div>
       ) : (
         <Button onClick={handlePublish} disabled={!canPublish || publish.isPending} className="self-start">
@@ -189,6 +221,34 @@ export function FinalizeClient({ productId }: { productId: string }) {
           Publish to Shopify
         </Button>
       )}
+
+      <Dialog open={syncConfirmOpen} onOpenChange={(open) => !syncListing.isPending && setSyncConfirmOpen(open)}>
+        <DialogContent className="w-full max-w-sm rounded-2xl border border-border bg-card p-5">
+          <DialogTitle>Update the live Shopify listing?</DialogTitle>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            This will overwrite the title, description, tags, SEO, and photos on this product&apos;s live Shopify
+            listing with what&apos;s currently saved here. This can&apos;t be undone.
+          </p>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={syncListing.isPending}
+              onClick={() => setSyncConfirmOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button size="sm" disabled={syncListing.isPending} onClick={handleSyncListing}>
+              {syncListing.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              Update Listing
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageShell>
   );
 }

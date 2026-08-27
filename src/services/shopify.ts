@@ -731,6 +731,114 @@ export async function updateShopifyProductPrice(input: UpdateShopifyPriceInput):
   }
 }
 
+// ── Post-publish listing sync ───────────────────────────────────────────
+// Finalize's "Update Shopify Listing" action (api/products/[productId]/sync/
+// route.ts) — re-pushes title/description/tags/SEO/photos to a product
+// that's already live on Shopify, for edits made on Review after the
+// initial Publish. Unlike publishProductToShopify's create-time productSet
+// call, these mutations target an *existing* product id.
+//
+// NOTE: unlike the rest of this file, productCreateMedia/productDeleteMedia
+// below haven't been confirmed live against this store yet (see the
+// "confirmed live" comments on buildMetafields above for why that
+// matters — a wrong field/type here fails the same way those did). Test
+// against one non-critical product before relying on this broadly.
+
+/**
+ * Replaces every existing media item on a product with `images` — deletes
+ * whatever's currently attached, then stages and attaches the new set.
+ * Delete-then-recreate rather than trying to diff/reorder in place, since
+ * this app always sends the full hero/lifestyle/closeup set together and
+ * there's no per-image identity to match old media against new.
+ */
+async function replaceProductMedia(productGid: string, images: ShopifyImageInput[]): Promise<void> {
+  const existing = await shopifyGraphQL<{ product: { media: { nodes: { id: string }[] } } | null }>(
+    `query getProductMedia($id: ID!) {
+      product(id: $id) { media(first: 50) { nodes { id } } }
+    }`,
+    { id: productGid }
+  );
+  const existingMediaIds = existing.product?.media.nodes.map((n) => n.id) ?? [];
+
+  if (existingMediaIds.length > 0) {
+    const deleteData = await shopifyGraphQL<{
+      productDeleteMedia: { mediaUserErrors: { field?: string[] | null; message: string }[] };
+    }>(
+      `mutation deleteMedia($productId: ID!, $mediaIds: [ID!]!) {
+        productDeleteMedia(productId: $productId, mediaIds: $mediaIds) {
+          mediaUserErrors { field message }
+        }
+      }`,
+      { productId: productGid, mediaIds: existingMediaIds }
+    );
+    assertNoUserErrors(deleteData.productDeleteMedia.mediaUserErrors, "productDeleteMedia");
+  }
+
+  const resourceUrls = await Promise.all(images.map((image) => stageImageUpload(image)));
+  const media = images.map((image, i) => ({
+    originalSource: resourceUrls[i],
+    alt: image.alt,
+    mediaContentType: "IMAGE",
+  }));
+
+  const createData = await shopifyGraphQL<{
+    productCreateMedia: { mediaUserErrors: { field?: string[] | null; message: string }[] };
+  }>(
+    `mutation createMedia($productId: ID!, $media: [CreateMediaInput!]!) {
+      productCreateMedia(productId: $productId, media: $media) {
+        mediaUserErrors { field message }
+      }
+    }`,
+    { productId: productGid, media }
+  );
+  assertNoUserErrors(createData.productCreateMedia.mediaUserErrors, "productCreateMedia");
+}
+
+export interface UpdateShopifyListingInput {
+  shopifyProductId: string;
+  title: string;
+  descriptionHtml: string;
+  tags: string[];
+  seoTitle: string;
+  metaDescription: string;
+  images: ShopifyImageInput[];
+}
+
+/**
+ * Pushes title/description/tags/SEO in one productUpdate call, then
+ * replaces the product's media entirely. Throws on either step failing —
+ * the caller (the sync route) is expected to catch this and flag
+ * `listingSyncStatus: "out_of_sync"` rather than have this decide that's
+ * fine, same contract as updateShopifyProductPrice above.
+ */
+export async function updateShopifyProductListing(input: UpdateShopifyListingInput): Promise<void> {
+  const productGid = productGidFromNumericId(input.shopifyProductId);
+
+  const data = await shopifyGraphQL<{
+    productUpdate: {
+      userErrors: { field?: string[] | null; message: string }[];
+    };
+  }>(
+    `mutation updateListing($input: ProductInput!) {
+      productUpdate(input: $input) {
+        userErrors { field message }
+      }
+    }`,
+    {
+      input: {
+        id: productGid,
+        title: input.title,
+        descriptionHtml: input.descriptionHtml,
+        tags: input.tags,
+        seo: { title: input.seoTitle, description: input.metaDescription },
+      },
+    }
+  );
+  assertNoUserErrors(data.productUpdate.userErrors, "productUpdate (listing sync)");
+
+  await replaceProductMedia(productGid, input.images);
+}
+
 // ── Delete gating ────────────────────────────────────────────────────────
 
 export type ShopifyProductStatus = "ACTIVE" | "ARCHIVED" | "DRAFT";

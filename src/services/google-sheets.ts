@@ -131,6 +131,10 @@ const COLUMNS = [
   "manualPriceOverride",
   "priceSyncStatus",
   "priceSyncedAt",
+  // Appended for post-publish listing edits (Update Shopify Listing) — same
+  // append-only rule.
+  "listingSyncStatus",
+  "listingSyncedAt",
 ] as const satisfies readonly (keyof ProductRecord)[];
 
 // Converts a 0-based column index to its Sheets column letter(s) — A, B, ...
@@ -233,6 +237,11 @@ function rowToRecord(row: string[]): ProductRecord {
       return raw === "synced" || raw === "out_of_sync" ? raw : "";
     })(),
     priceSyncedAt: get(33),
+    listingSyncStatus: ((): ProductRecord["listingSyncStatus"] => {
+      const raw = get(34);
+      return raw === "synced" || raw === "out_of_sync" ? raw : "";
+    })(),
+    listingSyncedAt: get(35),
   };
 }
 
