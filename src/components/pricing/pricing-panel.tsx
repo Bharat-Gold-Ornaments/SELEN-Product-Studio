@@ -13,14 +13,17 @@ import { cn } from "@/lib/utils";
 import { StoneLineItemsTable } from "@/components/pricing/stone-line-items-table";
 import { useSaveProductPricing, useRetryPriceSync } from "@/hooks/use-pricing";
 import {
-  computeFinalPrice,
+  applyGstAndRound,
+  computePriceBreakdown,
   detectPricingCase,
   validatePricingInputs,
   parseStoneLineItems,
   sumStoneCharges,
+  GST_RATE,
   type MakingChargeMode,
   type StoneLineItem,
   type PriceInputs,
+  type PriceBreakdown,
 } from "@/lib/pricing";
 import type { ProductRecord } from "@/types/product";
 
@@ -70,7 +73,14 @@ export function PricingPanel({ productId, record, ratePerGram, onPriced }: Prici
     setMakingChargeValue(record.makingChargeValue > 0 ? String(record.makingChargeValue) : "");
     setStoneLineItems(parseStoneLineItems(record.stoneLineItems));
     setManualOverride(record.manualPriceOverride);
-    setOverridePrice(record.manualPriceOverride && record.price > 0 ? String(record.price) : "");
+    // record.price is the final, GST-inclusive, charm-rounded price — the
+    // override field is a pre-GST amount (see applyGstAndRound), so back
+    // the GST out here. This is only an estimate: charm-rounding isn't
+    // reversible, so it won't always reproduce the exact figure originally
+    // typed, but it's close enough to re-edit from.
+    setOverridePrice(
+      record.manualPriceOverride && record.price > 0 ? String(Math.round(record.price / (1 + GST_RATE))) : ""
+    );
   }, [record]);
 
   const priceInputs: PriceInputs = {
@@ -83,9 +93,23 @@ export function PricingPanel({ productId, record, ratePerGram, onPriced }: Prici
   };
   const pricingCase = detectPricingCase(priceInputs.grossWeightGrams, priceInputs.netWeightGrams);
   const validationError = validatePricingInputs(priceInputs);
-  const computedPrice = computeFinalPrice(priceInputs);
   const overridePriceNumber = Number(overridePrice) || 0;
-  const finalPrice = manualOverride ? overridePriceNumber : computedPrice;
+  const overrideFinalPrice = applyGstAndRound(overridePriceNumber);
+  // Override mode has no metal/making/stone split — just its own pre-GST
+  // amount, GST, and the resulting total — so it's modelled as a
+  // PriceBreakdown too, letting the summary block below stay one path
+  // instead of branching computed vs. override separately.
+  const breakdown: PriceBreakdown = manualOverride
+    ? {
+        metalCost: 0,
+        makingCharge: 0,
+        stoneCharges: 0,
+        subtotal: overridePriceNumber,
+        gst: overrideFinalPrice - overridePriceNumber,
+        total: overrideFinalPrice,
+      }
+    : computePriceBreakdown(priceInputs);
+  const finalPrice = breakdown.total;
 
   const canSave =
     !validationError &&
@@ -210,7 +234,7 @@ export function PricingPanel({ productId, record, ratePerGram, onPriced }: Prici
 
         {manualOverride ? (
           <div className="space-y-1.5">
-            <Label>Override Price (₹)</Label>
+            <Label>Override Price, before GST (₹)</Label>
             <Input type="number" min="0" step="1" value={overridePrice} onChange={(e) => setOverridePrice(e.target.value)} />
           </div>
         ) : null}
@@ -222,9 +246,38 @@ export function PricingPanel({ productId, record, ratePerGram, onPriced }: Prici
           </p>
         ) : null}
 
+        <div className="space-y-1.5 rounded-xl border border-border px-4 py-3 text-sm">
+          {manualOverride ? null : (
+            <>
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>Metal cost</span>
+                <span>₹{breakdown.metalCost.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+              </div>
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>Making charge</span>
+                <span>₹{breakdown.makingCharge.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+              </div>
+              {pricingCase === "B" ? (
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>Stone/pearl charges</span>
+                  <span>₹{breakdown.stoneCharges.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                </div>
+              ) : null}
+            </>
+          )}
+          <div className="flex items-center justify-between border-t border-border pt-1.5 text-muted-foreground">
+            <span>Subtotal</span>
+            <span>₹{breakdown.subtotal.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+          </div>
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span>GST ({(GST_RATE * 100).toFixed(0)}%)</span>
+            <span>₹{breakdown.gst.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+          </div>
+        </div>
+
         <div className="flex items-center justify-between rounded-xl bg-secondary/50 px-4 py-3">
           <span className="text-sm text-muted-foreground">
-            {manualOverride ? "Override price" : "Computed price"}
+            {manualOverride ? "Total (incl. GST)" : "Computed price (incl. GST)"}
           </span>
           <span className="text-xl font-semibold text-foreground">₹{finalPrice.toLocaleString("en-IN")}</span>
         </div>

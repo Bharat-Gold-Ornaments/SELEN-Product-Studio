@@ -101,8 +101,55 @@ export function roundToCharmPrice(rawPrice: number): number {
   return Math.max(nextHundred, 100) - 1;
 }
 
+/** GST rate applied to every sticker price — see applyGstAndRound. */
+export const GST_RATE = 0.03;
+
+/**
+ * Adds GST on top of a pre-tax amount and then charm-rounds the
+ * *GST-inclusive* total, so the number a customer actually pays is the one
+ * that ends in ₹99 — not the pre-tax subtotal. Shared by the formula path
+ * (computeFinalPrice) and Manual Price Override, so both a computed price
+ * and a hand-typed override go through the same tax + rounding step.
+ */
+export function applyGstAndRound(preTaxAmount: number): number {
+  return roundToCharmPrice(preTaxAmount * (1 + GST_RATE));
+}
+
 export function computeFinalPrice(inputs: PriceInputs): number {
-  return roundToCharmPrice(computeRawPrice(inputs));
+  return applyGstAndRound(computeRawPrice(inputs));
+}
+
+export interface PriceBreakdown {
+  metalCost: number;
+  makingCharge: number;
+  stoneCharges: number;
+  /** Pre-GST subtotal — metalCost + makingCharge + stoneCharges, equal to computeRawPrice(inputs). */
+  subtotal: number;
+  /** Back-derived as total - subtotal (rather than subtotal * GST_RATE) so the displayed lines always sum exactly to `total`, the actual charm-rounded sticker price. */
+  gst: number;
+  /** The final, GST-inclusive, charm-rounded price — same value computeFinalPrice(inputs) returns. */
+  total: number;
+}
+
+/**
+ * Decomposes computeFinalPrice's result into the line items the Finalize
+ * pricing panel shows above its price row. Reuses computeRawPrice/
+ * computeFinalPrice rather than re-deriving the case A/B formulas, so this
+ * can never drift from the numbers that actually get saved.
+ */
+export function computePriceBreakdown(inputs: PriceInputs): PriceBreakdown {
+  const pricingCase = detectPricingCase(inputs.grossWeightGrams, inputs.netWeightGrams);
+  const weightForMaking = pricingCase === "A" ? inputs.grossWeightGrams : inputs.netWeightGrams;
+  const metalCost = weightForMaking * inputs.ratePerGram;
+  const makingCharge =
+    inputs.makingChargeMode === "flat" ? inputs.makingChargeValue : weightForMaking * inputs.makingChargeValue;
+  const stoneCharges = pricingCase === "B" ? sumStoneCharges(inputs.stoneLineItems) : 0;
+
+  const subtotal = computeRawPrice(inputs);
+  const total = computeFinalPrice(inputs);
+  const gst = total - subtotal;
+
+  return { metalCost, makingCharge, stoneCharges, subtotal, gst, total };
 }
 
 /**

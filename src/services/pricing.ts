@@ -4,6 +4,7 @@ import { readConfigFile, writeConfigFile } from "@/services/google-drive";
 import { listProducts, updateProductRow, findProduct } from "@/services/google-sheets";
 import { updateShopifyProductPrice } from "@/services/shopify";
 import {
+  applyGstAndRound,
   computeFinalPrice,
   validatePricingInputs,
   parseStoneLineItems,
@@ -116,7 +117,10 @@ export async function saveProductPricing(
     if (!(input.manualPriceOverrideValue && input.manualPriceOverrideValue > 0)) {
       throw new Error("Enter a manual override price greater than 0.");
     }
-    price = input.manualPriceOverrideValue;
+    // The typed override is a pre-GST amount, same as the computed
+    // subtotal — it goes through the same GST + charm-rounding step so
+    // every published price is GST-inclusive and ends in ₹99.
+    price = applyGstAndRound(input.manualPriceOverrideValue);
   } else {
     price = computeFinalPrice(priceInputs);
   }
