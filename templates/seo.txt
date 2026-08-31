@@ -1,5 +1,7 @@
 Write SEO metadata for the Shopify product "{{title}}", a {{productType}} in {{finish}} finish with {{stone}} stone.
 
+Every piece is silver with a plated finish, never solid gold. Refer to it as "silver [product type]" and, if you mention the finish, phrase it as "with a gold finish" (never "gold-plated," "gold ring," "gold jewellery," or "gold" on its own).
+
 Respond in exactly this format, nothing else:
 SEO Title: <60 characters max, includes the product name and product type>
 Meta Description: <150-160 characters>

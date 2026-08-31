@@ -1,4 +1,5 @@
 import { downloadFile, driveFileIdFromImageProxyUrl } from "@/services/google-drive";
+import { colorSlug, findVariantColorImageSet, type VariantColorImageSet } from "@/lib/variants";
 import type { ShopifyImageInput } from "@/services/shopify";
 import type { ImageCategory, ProductRecord } from "@/types/product";
 
@@ -62,7 +63,48 @@ export async function loadPickedShopifyImages(record: ProductRecord): Promise<Sh
         mimeType,
         filename: `${category}.${extensionFromMimeType(mimeType)}`,
         alt: record.title,
+        category,
       };
     })
   );
+}
+
+/**
+ * Downloads every photo in a set of variant Colors' galleries (see
+ * src/lib/variants.ts's VariantColorImageSet — any number per color, mixing
+ * AI-generated and manually-uploaded) and shapes them for services/
+ * shopify.ts the same way loadPickedShopifyImages does for the product's
+ * base photos — each tagged with `color` so shopify.ts's gallery-attach step
+ * knows which variant(s) to attach it to. A color with no gallery yet (still
+ * generating, failed, or never requested) simply contributes nothing —
+ * services/shopify.ts's attach step just has nothing to attach for that
+ * variant in that case, never errors.
+ */
+export async function loadVariantColorShopifyImages(
+  colorImageSets: VariantColorImageSet[],
+  colors: string[]
+): Promise<ShopifyImageInput[]> {
+  const images: ShopifyImageInput[] = [];
+
+  for (const color of colors) {
+    const set = findVariantColorImageSet(colorImageSets, color);
+    if (!set) continue;
+
+    for (const image of set.images) {
+      const fileId = driveFileIdFromImageProxyUrl(image.url);
+      const { buffer, mimeType } = await downloadFile(fileId);
+      images.push({
+        buffer,
+        mimeType,
+        // image.id keeps this unique even for two manually-uploaded photos
+        // of the same color, which have no category to disambiguate by.
+        filename: `${colorSlug(color)}-${image.id}.${extensionFromMimeType(mimeType)}`,
+        alt: `${color}${image.category ? ` ${image.category}` : ""}`,
+        category: image.category,
+        color,
+      });
+    }
+  }
+
+  return images;
 }

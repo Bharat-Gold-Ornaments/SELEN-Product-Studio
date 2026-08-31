@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { findProduct, updateProductRow } from "@/services/google-sheets";
 import { publishProductToShopify } from "@/services/shopify";
+import { readAppSettings } from "@/services/app-settings";
 import { PRODUCT_TYPES } from "@/lib/constants";
-import { descriptionToHtml, loadPickedShopifyImages } from "@/lib/shopify-listing";
+import { descriptionToHtml, loadPickedShopifyImages, loadVariantColorShopifyImages } from "@/lib/shopify-listing";
+import { parseVariantRows, resolveVariantPrice, parseVariantColorImages, colorsNeedingGeneratedImages } from "@/lib/variants";
+import { parseStoneLineItems } from "@/lib/pricing";
 
 export const maxDuration = 90;
 
@@ -71,8 +74,38 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   }
 
   try {
-    const images = await loadPickedShopifyImages(record);
     const productType = PRODUCT_TYPES.find((t) => t.value === record.category)?.label ?? record.category;
+    // Variants are saved independently via the Variants panel before Publish
+    // ever runs (same as Pricing) — read whatever's currently saved rather
+    // than taking them from this request's body. "Same as main price" rows
+    // resolve against this request's `price` so they can never go stale
+    // relative to whatever price is actually being sent; a custom-weight row
+    // is recomputed fresh with the current global rate.
+    const variantRows = parseVariantRows(record.variants);
+    const settings = await readAppSettings();
+    const pricing = {
+      ratePerGram: settings.ratePerGram,
+      makingChargeMode: record.makingChargeMode,
+      makingChargeValue: record.makingChargeValue,
+      stoneLineItems: parseStoneLineItems(record.stoneLineItems),
+    };
+    const variants = variantRows.map((row) => ({
+      color: row.color,
+      size: row.size,
+      price: resolveVariantPrice(row, price, pricing),
+      inventory: row.inventory,
+      useDefaultImages: row.useDefaultImages,
+      grossWeightGrams: row.grossWeightGrams,
+    }));
+
+    const [baseImages, colorImages] = await Promise.all([
+      loadPickedShopifyImages(record),
+      loadVariantColorShopifyImages(
+        parseVariantColorImages(record.variantColorImages),
+        colorsNeedingGeneratedImages(variantRows, record.finish)
+      ),
+    ]);
+    const images = [...baseImages, ...colorImages];
 
     const result = await publishProductToShopify({
       title: record.title,
@@ -82,6 +115,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
       price,
       inventory,
       images,
+      variants,
       seoTitle: record.seoTitle || record.title,
       metaDescription: record.metaDescription,
       weightGrams: record.weightGrams,

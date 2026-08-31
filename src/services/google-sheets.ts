@@ -135,6 +135,12 @@ const COLUMNS = [
   // append-only rule.
   "listingSyncStatus",
   "listingSyncedAt",
+  // Appended for the Variants (Color/Size) feature — same append-only rule.
+  "variants",
+  "variantsSyncStatus",
+  "variantsSyncedAt",
+  // Appended for per-color AI-generated variant photos — same append-only rule.
+  "variantColorImages",
 ] as const satisfies readonly (keyof ProductRecord)[];
 
 // Converts a 0-based column index to its Sheets column letter(s) — A, B, ...
@@ -242,6 +248,13 @@ function rowToRecord(row: string[]): ProductRecord {
       return raw === "synced" || raw === "out_of_sync" ? raw : "";
     })(),
     listingSyncedAt: get(35),
+    variants: get(36),
+    variantsSyncStatus: ((): ProductRecord["variantsSyncStatus"] => {
+      const raw = get(37);
+      return raw === "synced" || raw === "out_of_sync" ? raw : "";
+    })(),
+    variantsSyncedAt: get(38),
+    variantColorImages: get(39),
   };
 }
 

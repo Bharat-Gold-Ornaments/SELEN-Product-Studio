@@ -35,8 +35,15 @@ export async function generateCategoryImages(
   category: ImageCategory,
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[],
-  productId?: string
+  productId?: string,
+  referenceNoteOverride?: string
 ): Promise<string[]> {
   const provider = await activeProvider();
-  return provider.generateCategoryImages(productType, category, variables, referenceImages, productId);
+  return provider.generateCategoryImages(productType, category, variables, referenceImages, productId, referenceNoteOverride);
+}
+
+/** Whether the currently active provider/model supports image-to-image at all — see leonardo.ts's supportsImageToImage for the one real gap (Ideogram 3.0). */
+export async function supportsImageToImage(): Promise<boolean> {
+  const provider = await activeProvider();
+  return provider.supportsImageToImage();
 }

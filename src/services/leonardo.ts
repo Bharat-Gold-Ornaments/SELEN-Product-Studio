@@ -597,13 +597,15 @@ async function generateForCategory(
   variables: ImagePromptVariables,
   numImages: number,
   referenceImages?: ReferenceImage[],
-  productId?: string
+  productId?: string,
+  /** Overrides REFERENCE_NOTE's default "keep everything unchanged" instruction — used by the variant-recolor flow (services/product-generation.ts's generateVariantColorImages), whose whole point is the opposite: change one specific thing and keep everything else the same. */
+  referenceNoteOverride?: string
 ): Promise<string[]> {
   const template = await readTemplate(imageTemplateId(productType, category));
   const [positiveRaw, negativeRaw] = template.content.split(NEGATIVE_PROMPT_DELIMITER);
 
   const hasReference = Boolean(referenceImages && referenceImages.length > 0);
-  const renderVars = { ...variables, referenceNote: hasReference ? REFERENCE_NOTE : "" };
+  const renderVars = { ...variables, referenceNote: hasReference ? referenceNoteOverride ?? REFERENCE_NOTE : "" };
   const prompt = renderTemplate(positiveRaw.trim(), renderVars);
   const negativePrompt = negativeRaw?.trim() ? renderTemplate(negativeRaw.trim(), renderVars) : undefined;
 
@@ -633,7 +635,8 @@ export async function generateHero(
   productType: ProductType,
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[],
-  productId?: string
+  productId?: string,
+  referenceNoteOverride?: string
 ): Promise<string[]> {
   const settings = await readAppSettings();
   return generateForCategory(
@@ -642,7 +645,8 @@ export async function generateHero(
     variables,
     settings.generationCounts.hero,
     referenceImages,
-    productId
+    productId,
+    referenceNoteOverride
   );
 }
 
@@ -650,7 +654,8 @@ export async function generateLifestyle(
   productType: ProductType,
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[],
-  productId?: string
+  productId?: string,
+  referenceNoteOverride?: string
 ): Promise<string[]> {
   const settings = await readAppSettings();
   return generateForCategory(
@@ -659,7 +664,8 @@ export async function generateLifestyle(
     variables,
     settings.generationCounts.lifestyle,
     referenceImages,
-    productId
+    productId,
+    referenceNoteOverride
   );
 }
 
@@ -667,7 +673,8 @@ export async function generateCloseup(
   productType: ProductType,
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[],
-  productId?: string
+  productId?: string,
+  referenceNoteOverride?: string
 ): Promise<string[]> {
   const settings = await readAppSettings();
   return generateForCategory(
@@ -676,7 +683,8 @@ export async function generateCloseup(
     variables,
     settings.generationCounts.closeup,
     referenceImages,
-    productId
+    productId,
+    referenceNoteOverride
   );
 }
 
@@ -692,13 +700,30 @@ const GENERATORS: Record<
     productType: ProductType,
     variables: ImagePromptVariables,
     referenceImages?: ReferenceImage[],
-    productId?: string
+    productId?: string,
+    referenceNoteOverride?: string
   ) => Promise<string[]>
 > = {
   hero: generateHero,
   lifestyle: generateLifestyle,
   closeup: generateCloseup,
 };
+
+/**
+ * Whether the currently active Leonardo model actually supports
+ * image-to-image at all — false only for Ideogram 3.0
+ * (`maxReferenceImages: 0`). Used by the variant-recolor flow to warn the
+ * user their "recolor" is really a fresh text-to-image reinterpretation
+ * rather than failing silently. v1 (the default, unset LEONARDO_MODEL_ID)
+ * always supports a single init image.
+ */
+export function supportsImageToImage(): boolean {
+  const modelId = process.env.LEONARDO_MODEL_ID;
+  if (modelId && V2_MODELS.has(modelId)) {
+    return (V2_MODEL_CONFIGS[modelId]?.maxReferenceImages ?? 0) > 0;
+  }
+  return true;
+}
 
 /**
  * Runs the requested categories independently via `Promise.allSettled` —
@@ -763,7 +788,8 @@ export async function generateCategoryImages(
   category: ImageCategory,
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[],
-  productId?: string
+  productId?: string,
+  referenceNoteOverride?: string
 ): Promise<string[]> {
-  return GENERATORS[category](productType, variables, referenceImages, productId);
+  return GENERATORS[category](productType, variables, referenceImages, productId, referenceNoteOverride);
 }

@@ -131,7 +131,20 @@ export function ProductsClient() {
             {filtered.map((product) => (
               <Link
                 key={product.productId}
-                href={`/products/${product.productId}/review`}
+                // A product with no Drive folder ever assigned has no
+                // AI-generated images for Review to reconcile against — for
+                // a normal product that's a still-processing row (which
+                // isn't meaningfully clickable yet anyway), but for an
+                // already-published one it means this row was imported
+                // from Shopify (src/lib/shopify-import.ts always leaves
+                // driveFolder ""), so Review would show every category as
+                // an error with nothing to pick. Finalize reads its fields
+                // straight from the Sheet instead, so it works either way.
+                href={
+                  !product.driveFolder && product.shopifyProductId
+                    ? `/products/${product.productId}/finalize`
+                    : `/products/${product.productId}/review`
+                }
                 className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
               >
                 <ProductThumb category={product.category} imageUrl={product.closeupImageLink} />

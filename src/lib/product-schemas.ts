@@ -32,6 +32,9 @@ export const CLASP_TYPE_OPTIONS = [
   "Spring Ring",
 ] as const;
 
+/** The only 3 colors the Variants feature (and the storefront's swatch renderer) recognizes — kept to exactly these so every product's default color is machine-recognizable, not free text. */
+export const FINISH_OPTIONS = ["Yellow Gold", "Rose Gold", "Silver"] as const;
+
 // ── Field-level validation helpers ──────────────────────────────────────────
 // Numeric inputs are modelled as validated strings (matching what a native
 // <input type="number"> hands React Hook Form) and converted to numbers only
@@ -76,7 +79,7 @@ const baseShape = {
   sidePhoto: photoField("Side Photo"),
   wornPhoto: photoField("Worn Photo"),
   weightGrams: positiveNumberString("Weight"),
-  finish: z.string().min(1, "Finish is required"),
+  finish: z.enum(FINISH_OPTIONS),
   stone: z.string().min(1, 'Enter a stone, or "None"'),
   collections: z.array(z.string()).default([]),
   inventory: wholeNumberString,
@@ -186,7 +189,7 @@ export function defaultValuesFor(productType: ProductType) {
     sidePhoto: undefined,
     wornPhoto: undefined,
     weightGrams: "",
-    finish: "",
+    finish: FINISH_OPTIONS[0],
     stone: "",
     collections: [] as string[],
     inventory: "",

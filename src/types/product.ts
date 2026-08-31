@@ -124,4 +124,12 @@ export interface ProductRecord {
   // that's not tracked as a "sync" here, only re-pushes after are).
   listingSyncStatus: "synced" | "out_of_sync" | "";
   listingSyncedAt: string;
+  // ── Variants (Color/Size) ────────────────────────────────────────────────
+  /** JSON-serialized VariantRow[] (see src/lib/variants.ts) — Sheets has no native array-of-objects column type, same reasoning as stoneLineItems above. Empty string means this product is a single, variant-less listing (today's default for every product). */
+  variants: string;
+  /** "synced" once `variants` has been successfully pushed to Shopify, "out_of_sync" if a push failed, "" before the product is ever published or before variants are ever saved. */
+  variantsSyncStatus: "synced" | "out_of_sync" | "";
+  variantsSyncedAt: string;
+  /** JSON-serialized VariantColorImageSet[] (see src/lib/variants.ts) — AI-generated Hero/Lifestyle/Closeup photos for every variant color other than the product's own Default Finish. Empty string until a non-default color's photos are first generated. */
+  variantColorImages: string;
 }

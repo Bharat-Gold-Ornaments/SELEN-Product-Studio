@@ -52,6 +52,10 @@ export function buildDraftProductRecord(productId: string, values: ProductFormVa
     priceSyncedAt: "",
     listingSyncStatus: "" as const,
     listingSyncedAt: "",
+    variants: "",
+    variantsSyncStatus: "" as const,
+    variantsSyncedAt: "",
+    variantColorImages: "",
   };
 
   switch (values.productType) {

@@ -233,12 +233,14 @@ async function buildPrompt(
   productType: ProductType,
   category: ImageCategory,
   variables: ImagePromptVariables,
-  hasReference: boolean
+  hasReference: boolean,
+  /** Overrides REFERENCE_NOTE's default "keep everything unchanged" instruction — see leonardo.ts's generateForCategory for why the variant-recolor flow needs this. */
+  referenceNoteOverride?: string
 ): Promise<string> {
   const template = await readTemplate(imageTemplateId(productType, category));
   const [positiveRaw, negativeRaw] = template.content.split(NEGATIVE_PROMPT_DELIMITER);
 
-  const renderVars = { ...variables, referenceNote: hasReference ? REFERENCE_NOTE : "" };
+  const renderVars = { ...variables, referenceNote: hasReference ? referenceNoteOverride ?? REFERENCE_NOTE : "" };
   const prompt = renderTemplate(positiveRaw.trim(), renderVars);
   const negativePromptRaw = negativeRaw?.trim() ? renderTemplate(negativeRaw.trim(), renderVars) : undefined;
   const negativePrompt = negativePromptRaw ? sanitizeNegativePrompt(negativePromptRaw) : undefined;
@@ -260,10 +262,11 @@ async function generateForCategory(
   variables: ImagePromptVariables,
   numImages: number,
   referenceImages?: ReferenceImage[],
-  productId?: string
+  productId?: string,
+  referenceNoteOverride?: string
 ): Promise<string[]> {
   const hasReference = Boolean(referenceImages && referenceImages.length > 0);
-  const prompt = await buildPrompt(productType, category, variables, hasReference);
+  const prompt = await buildPrompt(productType, category, variables, hasReference, referenceNoteOverride);
   const inputUrls = hasReference
     ? await Promise.all(referenceImages!.map((image) => uploadReferenceImage(image)))
     : undefined;
@@ -294,7 +297,8 @@ export async function generateHero(
   productType: ProductType,
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[],
-  productId?: string
+  productId?: string,
+  referenceNoteOverride?: string
 ): Promise<string[]> {
   const settings = await readAppSettings();
   return generateForCategory(
@@ -303,7 +307,8 @@ export async function generateHero(
     variables,
     settings.generationCounts.hero,
     referenceImages,
-    productId
+    productId,
+    referenceNoteOverride
   );
 }
 
@@ -311,7 +316,8 @@ export async function generateLifestyle(
   productType: ProductType,
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[],
-  productId?: string
+  productId?: string,
+  referenceNoteOverride?: string
 ): Promise<string[]> {
   const settings = await readAppSettings();
   return generateForCategory(
@@ -320,7 +326,8 @@ export async function generateLifestyle(
     variables,
     settings.generationCounts.lifestyle,
     referenceImages,
-    productId
+    productId,
+    referenceNoteOverride
   );
 }
 
@@ -328,7 +335,8 @@ export async function generateCloseup(
   productType: ProductType,
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[],
-  productId?: string
+  productId?: string,
+  referenceNoteOverride?: string
 ): Promise<string[]> {
   const settings = await readAppSettings();
   return generateForCategory(
@@ -337,7 +345,8 @@ export async function generateCloseup(
     variables,
     settings.generationCounts.closeup,
     referenceImages,
-    productId
+    productId,
+    referenceNoteOverride
   );
 }
 
@@ -354,13 +363,19 @@ const GENERATORS: Record<
     productType: ProductType,
     variables: ImagePromptVariables,
     referenceImages?: ReferenceImage[],
-    productId?: string
+    productId?: string,
+    referenceNoteOverride?: string
   ) => Promise<string[]>
 > = {
   hero: generateHero,
   lifestyle: generateLifestyle,
   closeup: generateCloseup,
 };
+
+/** Every Kie model has both a text-to-image and image-to-image variant (see kieModel above) — unlike Leonardo's Ideogram 3.0, there's no model here with zero image-to-image support. */
+export function supportsImageToImage(): boolean {
+  return true;
+}
 
 export async function generateAllImages(
   productType: ProductType,
@@ -399,7 +414,8 @@ export async function generateCategoryImages(
   category: ImageCategory,
   variables: ImagePromptVariables,
   referenceImages?: ReferenceImage[],
-  productId?: string
+  productId?: string,
+  referenceNoteOverride?: string
 ): Promise<string[]> {
-  return GENERATORS[category](productType, variables, referenceImages, productId);
+  return GENERATORS[category](productType, variables, referenceImages, productId, referenceNoteOverride);
 }

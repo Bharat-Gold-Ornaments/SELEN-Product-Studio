@@ -1,5 +1,7 @@
 import "server-only";
 import { requireEnv, optionalEnv } from "@/lib/env";
+import { colorGalleryMetafieldKey } from "@/lib/variants";
+import type { ImageCategory } from "@/types/product";
 
 // ── Config ───────────────────────────────────────────────────────────────
 
@@ -248,6 +250,10 @@ export interface ShopifyImageInput {
   mimeType: string;
   filename: string;
   alt: string;
+  /** Which of hero/lifestyle/closeup this is — informational only (e.g. which AI generation pass produced a variant gallery photo); a manually-uploaded gallery photo has none. */
+  category?: ImageCategory;
+  /** Which variant Color this photo belongs to — omitted for the product's own base/default photos. Present entries get staged as variant-gallery media and attached to that color's variant(s) (see attachVariantGalleries below) instead of going into the product's plain `files` list. */
+  color?: string;
 }
 
 /**
@@ -395,6 +401,26 @@ async function resolveCategoryId(productTypeLabel: string): Promise<string | nul
 
 // ── Product creation ─────────────────────────────────────────────────────
 
+/**
+ * One Color/Size variant, shaped for Shopify — a plain, already-resolved
+ * mirror of src/lib/variants.ts's VariantRow (its `sameAsMainPrice`/
+ * `grossWeightGrams`/`netWeightGrams` already resolved to a real number by
+ * the caller via resolveVariantPrice, so this file never needs to know about
+ * that concept).
+ */
+export interface ShopifyVariantInput {
+  /** "" means this product doesn't use a Color option at all. */
+  color: string;
+  /** "" means this product doesn't use a Size option at all. */
+  size: string;
+  price: number;
+  inventory: number;
+  /** true = show the product's plain default photos, no dedicated gallery attached. false = this variant gets its own photo gallery, attached after the variant exists — see attachVariantGalleries. */
+  useDefaultImages: boolean;
+  /** 0 = not entered — written to Shopify as the `custom.variant_weight` variant metafield when positive (see buildVariantsInput), so the storefront can show each size's own weight instead of one product-wide number. Purely informational — never affects price unless the caller already folded it into `price` above via resolveVariantPrice. */
+  grossWeightGrams: number;
+}
+
 export interface CreateShopifyProductInput {
   title: string;
   descriptionHtml: string;
@@ -414,6 +440,8 @@ export interface CreateShopifyProductInput {
   lengthCm: number | null;
   /** Real Shopify collection titles (from Review's AI classification, or hand-edited) — resolved to collection ids via listCollections/resolveCollectionIds below. Titles that don't match a real collection are silently dropped rather than erroring, same reasoning as resolveCategoryId's no-confident-match case. */
   collections?: string[];
+  /** Empty array = today's single "Default Title" variant (see buildVariantsInput) — every product that doesn't use this feature is completely unaffected. */
+  variants: ShopifyVariantInput[];
 }
 
 export interface PublishProductInput extends CreateShopifyProductInput {
@@ -469,38 +497,438 @@ function buildMetafields(input: CreateShopifyProductInput): { namespace: string;
   return metafields;
 }
 
+// ── Variants → productSet input ─────────────────────────────────────────
+
+function uniqueTrimmedInOrder(values: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const trimmed = value.trim();
+    if (trimmed && !seen.has(trimmed)) {
+      seen.add(trimmed);
+      result.push(trimmed);
+    }
+  }
+  return result;
+}
+
+function variantKey(color: string, size: string): string {
+  return `${color.trim().toLowerCase()}::${size.trim().toLowerCase()}`;
+}
+
 /**
- * Creates a fully-formed product — title, description, tags, images, price,
- * and starting inventory — in one call via `productSet`, run synchronously
- * so the new product's id comes back directly instead of needing a
- * follow-up poll. `productSet` (rather than the older `productCreate` +
- * `productVariantsBulkUpdate` + a separate inventory call) is Shopify's
- * current recommended single-request way to do this — every field lands
- * atomically instead of the product briefly existing half-configured
- * between several calls. Every product here is a single-variant listing (no
- * real size/color choices to make), which used to just get Shopify's
- * implicit default "Title"/"Default Title" option/value pair for free with
- * no input needed. Current API versions no longer infer that: `productSet`
- * now rejects the call unless `productOptions` is declared AND each variant's
- * `optionValues` explicitly references it — so this spells out that same
- * single default option/value pair by hand instead of relying on it being
- * automatic.
+ * Builds productSet's `productOptions`/`variants` input from either nothing
+ * (today's single "Default Title" variant — see the history in this
+ * function's own comment below) or a real list of Color/Size variants.
+ * Shared by createShopifyProduct (initial publish) and
+ * syncShopifyProductVariants (post-publish edits) so the two can never drift
+ * apart on how a variant becomes Shopify input. Never touches photos —
+ * a variant's gallery is attached in a separate step after this input's
+ * variants actually exist and have real ids (see attachVariantGalleries),
+ * since Shopify has no way to attach more than one photo to a variant in
+ * the same call that creates/updates it.
+ *
+ * `existingVariantIdByKey`, when provided (only by the sync/update path),
+ * lets a row that matches an already-existing Shopify variant (matched by
+ * its Color/Size combination) update that variant in place via its `id`
+ * instead of creating a duplicate.
+ */
+function buildVariantsInput(
+  basePrice: number,
+  baseInventory: number,
+  variants: ShopifyVariantInput[],
+  locationId: string,
+  existingVariantIdByKey?: Map<string, string>
+): {
+  productOptions: { name: string; values: { name: string }[]; linkedMetafield: null }[];
+  variants: Record<string, unknown>[];
+} {
+  if (variants.length === 0) {
+    // Every product here used to be a single-variant listing (no real size/
+    // color choices to make), which used to just get Shopify's implicit
+    // default "Title"/"Default Title" option/value pair for free with no
+    // input needed. Current API versions no longer infer that: `productSet`
+    // now rejects the call unless `productOptions` is declared AND each
+    // variant's `optionValues` explicitly references it — so this spells
+    // out that same single default option/value pair by hand instead of
+    // relying on it being automatic.
+    return {
+      productOptions: [{ name: "Title", values: [{ name: "Default Title" }], linkedMetafield: null }],
+      variants: [
+        {
+          price: basePrice,
+          inventoryQuantities: [{ locationId, name: "available", quantity: baseInventory }],
+          optionValues: [{ optionName: "Title", name: "Default Title" }],
+        },
+      ],
+    };
+  }
+
+  const usesColor = variants.some((v) => v.color.trim() !== "");
+  const usesSize = variants.some((v) => v.size.trim() !== "");
+
+  // `linkedMetafield: null` is required, not just harmless, on every
+  // productOption below — confirmed live against this store. When a
+  // product's Category is Rings (see resolveCategoryId) and an option here
+  // is named "Size", Shopify silently auto-links it to its own standard
+  // `shopify.ring-size` metafield/taxonomy *without this code ever
+  // requesting it*, and even renames the option to "Ring size" (which the
+  // storefront's own isRingSizeOption already tolerates as an alias — see
+  // selen-sparkle-shop's lib/ringSize.ts). That taxonomy's own fixed value
+  // list only goes up to plain "14" before jumping to letter/EU sizes, so
+  // any Indian ring size above that (16, 18 — see RING_SIZE_OPTIONS) gets
+  // rejected outright by productSet with "At least one value for the option
+  // linked to the 'shopify.ring-size' metafield is invalid". Explicitly
+  // nulling it here — on every call, not just once — is the only way to
+  // keep the option a plain custom option that accepts our own Indian
+  // sizing instead of Shopify's US/EU one; omitting the field isn't enough
+  // once a product has already been auto-linked, since productSet then
+  // leaves the existing link untouched.
+  const productOptions: { name: string; values: { name: string }[]; linkedMetafield: null }[] = [];
+  if (usesColor) {
+    productOptions.push({
+      name: "Color",
+      values: uniqueTrimmedInOrder(variants.map((v) => v.color)).map((name) => ({ name })),
+      linkedMetafield: null,
+    });
+  }
+  if (usesSize) {
+    productOptions.push({
+      name: "Size",
+      values: uniqueTrimmedInOrder(variants.map((v) => v.size)).map((name) => ({ name })),
+      linkedMetafield: null,
+    });
+  }
+
+  const shopifyVariants = variants.map((variant) => {
+    const optionValues: { optionName: string; name: string }[] = [];
+    if (usesColor) optionValues.push({ optionName: "Color", name: variant.color.trim() });
+    if (usesSize) optionValues.push({ optionName: "Size", name: variant.size.trim() });
+
+    const existingId = existingVariantIdByKey?.get(variantKey(variant.color, variant.size));
+
+    return {
+      ...(existingId ? { id: existingId } : {}),
+      price: variant.price,
+      inventoryQuantities: [{ locationId, name: "available", quantity: variant.inventory }],
+      optionValues,
+      // `custom.variant_weight` — a plain-text, per-variant metafield (its
+      // definition already exists on the store, so `type` is omitted here,
+      // same convention buildMetafields uses for the product-level fields)
+      // that lets the storefront show each size's own weight instead of one
+      // product-wide number. Omitted entirely when nothing was entered,
+      // same "only write when there's an actual value" convention as
+      // buildMetafields.
+      ...(variant.grossWeightGrams > 0
+        ? { metafields: [{ namespace: "custom", key: "variant_weight", value: `${variant.grossWeightGrams}g` }] }
+        : {}),
+    };
+  });
+
+  return { productOptions, variants: shopifyVariants };
+}
+
+// ── Variant photo galleries ──────────────────────────────────────────────
+// A Shopify variant can hold many photos (ProductVariant.media is a full
+// connection, confirmed live against this store's schema) — but nothing in
+// productSet's variant input can attach more than one at variant-creation
+// time. So a variant's gallery is staged as ordinary product media first
+// (productCreateMedia, same mechanism replaceProductMedia already uses for
+// the product's own base photos), then explicitly linked to its variant(s)
+// via productVariantAppendMedia once the variant has a real id. Not yet
+// execution-tested against the live store (only schema-validated) — same
+// caveat replaceProductMedia's own NOTE above already carries for
+// productCreateMedia/productDeleteMedia; test against one non-critical
+// product before relying on this broadly.
+
+const MEDIA_READY_POLL_INTERVAL_MS = 1_000;
+const MEDIA_READY_TIMEOUT_MS = 25_000;
+
+/**
+ * Waits for freshly-created media to finish processing. `productCreateMedia`
+ * returns an id immediately, but Shopify processes the actual image
+ * asynchronously (UPLOADED -> PROCESSING -> READY/FAILED) — confirmed live:
+ * attaching a variant to media that isn't READY yet fails outright with
+ * "Non-ready media cannot be attached to variants." Polls every id via the
+ * generic `nodes` query (an inline fragment on the `Media` interface, since
+ * that's where `status` lives) until each is READY, FAILED, or the timeout
+ * elapses. Returns only the ids that made it to READY in time — a caller
+ * losing one photo to a slow/failed processing job should still attach
+ * whatever else is ready rather than fail the whole save/publish over it.
+ */
+async function waitForMediaReady(mediaIds: string[]): Promise<Set<string>> {
+  const pending = new Set(mediaIds);
+  const ready = new Set<string>();
+  const deadline = Date.now() + MEDIA_READY_TIMEOUT_MS;
+
+  while (pending.size > 0 && Date.now() < deadline) {
+    const data = await shopifyGraphQL<{ nodes: ({ id: string; status: string } | null)[] }>(
+      `query getMediaStatuses($ids: [ID!]!) {
+        nodes(ids: $ids) {
+          ... on Media { id status }
+        }
+      }`,
+      { ids: Array.from(pending) }
+    );
+
+    for (const node of data.nodes) {
+      if (!node) continue;
+      if (node.status === "READY") {
+        ready.add(node.id);
+        pending.delete(node.id);
+      } else if (node.status === "FAILED") {
+        pending.delete(node.id);
+      }
+    }
+
+    if (pending.size > 0) {
+      await new Promise((resolve) => setTimeout(resolve, MEDIA_READY_POLL_INTERVAL_MS));
+    }
+  }
+
+  return ready;
+}
+
+/**
+ * Stages and creates real Shopify media for a batch of variant-gallery
+ * photos, returning `filename -> media id` for whichever finished
+ * processing in time (see waitForMediaReady). `productCreateMedia`'s
+ * response returns `media` in the same order as the input array — that's
+ * how each result gets matched back to the image that produced it, since
+ * `filename` is already unique per photo (see loadVariantColorShopifyImages
+ * in shopify-listing.ts).
+ */
+async function stageGalleryMedia(productGid: string, images: ShopifyImageInput[]): Promise<Map<string, string>> {
+  if (images.length === 0) return new Map();
+
+  const resourceUrls = await Promise.all(images.map((image) => stageImageUpload(image)));
+  const media = images.map((image, i) => ({
+    originalSource: resourceUrls[i],
+    alt: image.alt,
+    mediaContentType: "IMAGE",
+  }));
+
+  const data = await shopifyGraphQL<{
+    productCreateMedia: {
+      media: { id: string }[];
+      mediaUserErrors: { field?: string[] | null; message: string }[];
+    };
+  }>(
+    `mutation createGalleryMedia($productId: ID!, $media: [CreateMediaInput!]!) {
+      productCreateMedia(productId: $productId, media: $media) {
+        media { id }
+        mediaUserErrors { field message }
+      }
+    }`,
+    { productId: productGid, media }
+  );
+  assertNoUserErrors(data.productCreateMedia.mediaUserErrors, "productCreateMedia (variant gallery)");
+
+  const mediaIdByFilename = new Map<string, string>();
+  data.productCreateMedia.media.forEach((created, i) => {
+    mediaIdByFilename.set(images[i].filename, created.id);
+  });
+
+  const readyIds = await waitForMediaReady(Array.from(mediaIdByFilename.values()));
+  for (const [filename, id] of mediaIdByFilename) {
+    if (!readyIds.has(id)) mediaIdByFilename.delete(filename);
+  }
+  return mediaIdByFilename;
+}
+
+/** Groups staged gallery media ids by (normalized) Color — the shape attachVariantGalleries needs to know which media ids belong to which color's variant(s). */
+function groupMediaIdsByColor(images: ShopifyImageInput[], mediaIdByFilename: Map<string, string>): Map<string, string[]> {
+  const byColor = new Map<string, string[]>();
+  for (const image of images) {
+    if (!image.color) continue;
+    const mediaId = mediaIdByFilename.get(image.filename);
+    if (!mediaId) continue;
+    const key = image.color.trim().toLowerCase();
+    const list = byColor.get(key) ?? [];
+    list.push(mediaId);
+    byColor.set(key, list);
+  }
+  return byColor;
+}
+
+/** Every media id currently attached to one variant — used so attachVariantGalleries can detach the old set before attaching the new one, giving clean "replace" semantics instead of accumulating duplicates on repeated saves. */
+async function getVariantMediaIds(variantGid: string): Promise<string[]> {
+  const data = await shopifyGraphQL<{ productVariant: { media: { nodes: { id: string }[] } } | null }>(
+    `query getVariantMedia($id: ID!) {
+      productVariant(id: $id) {
+        media(first: 50) { nodes { id } }
+      }
+    }`,
+    { id: variantGid }
+  );
+  return data.productVariant?.media.nodes.map((n) => n.id) ?? [];
+}
+
+/**
+ * Attaches exactly **one** representative photo per variant — never that
+ * color's whole gallery. The Admin API's variant `media` connection can
+ * hold many items, but the Storefront API's `variant.image` (what
+ * selen-sparkle-shop actually reads as a fallback — see
+ * writeColorGalleryMetafields below for the gallery it reads *first*) is a
+ * legacy singular view of that association; keeping it to one media id per
+ * variant is what keeps that view unambiguous. When a color has more than
+ * one photo, each Size variant of that color gets a different one
+ * (round-robin by position) rather than all showing the same shot — a
+ * cosmetic nicety for Shopify's own admin variant list now that the curated
+ * metafield gallery is the storefront's real source.
+ *
+ * Runs for *every* variant, including ones flagged `useDefaultImages` —
+ * Shopify's own admin variant list shows a bare placeholder icon for a
+ * variant with nothing attached at all (confirmed against the live store),
+ * it does not fall back to showing the product's default photo the way the
+ * storefront does. `mediaIdsByColor` already includes the default row's own
+ * color (createShopifyProduct/syncShopifyProductVariants stage the base
+ * photos under that color too, specifically so this has something to
+ * attach), so this needs no special-casing — a color with genuinely nothing
+ * staged for it (mediaIds empty/missing) is simply skipped either way.
+ * Detaches whatever a variant already has attached first (a no-op for a
+ * freshly-created variant), so a repeated save/regenerate replaces rather
+ * than piles onto it.
+ */
+async function attachVariantGalleries(
+  productGid: string,
+  variants: ShopifyVariantInput[],
+  mediaIdsByColor: Map<string, string[]>,
+  variantIdByKey: Map<string, string>
+): Promise<void> {
+  const seenPerColor = new Map<string, number>();
+
+  for (const variant of variants) {
+    const colorKey = variant.color.trim().toLowerCase();
+    const mediaIds = mediaIdsByColor.get(colorKey);
+    if (!mediaIds || mediaIds.length === 0) continue;
+
+    const variantGid = variantIdByKey.get(variantKey(variant.color, variant.size));
+    if (!variantGid) continue;
+
+    const index = seenPerColor.get(colorKey) ?? 0;
+    seenPerColor.set(colorKey, index + 1);
+    const mediaId = mediaIds[index % mediaIds.length];
+
+    const currentMediaIds = await getVariantMediaIds(variantGid);
+    if (currentMediaIds.length > 0) {
+      const detachData = await shopifyGraphQL<{
+        productVariantDetachMedia: { userErrors: { field?: string[] | null; message: string }[] };
+      }>(
+        `mutation detachVariantMedia($productId: ID!, $variantMedia: [ProductVariantDetachMediaInput!]!) {
+          productVariantDetachMedia(productId: $productId, variantMedia: $variantMedia) {
+            userErrors { field message }
+          }
+        }`,
+        { productId: productGid, variantMedia: [{ variantId: variantGid, mediaIds: currentMediaIds }] }
+      );
+      assertNoUserErrors(detachData.productVariantDetachMedia.userErrors, "productVariantDetachMedia");
+    }
+
+    const attachData = await shopifyGraphQL<{
+      productVariantAppendMedia: { userErrors: { field?: string[] | null; message: string }[] };
+    }>(
+      `mutation appendVariantMedia($productId: ID!, $variantMedia: [ProductVariantAppendMediaInput!]!) {
+        productVariantAppendMedia(productId: $productId, variantMedia: $variantMedia) {
+          userErrors { field message }
+        }
+      }`,
+      { productId: productGid, variantMedia: [{ variantId: variantGid, mediaIds: [mediaId] }] }
+    );
+    assertNoUserErrors(attachData.productVariantAppendMedia.userErrors, "productVariantAppendMedia");
+  }
+}
+
+/**
+ * Writes each color's full photo list into selen-sparkle-shop's curated
+ * gallery metafield — `custom.gallery_yellow_gold`/`gallery_rose_gold`/
+ * `gallery_silver` (already created as `list.file_reference` definitions on
+ * the store; see colorGalleryMetafieldKey's doc comment in lib/variants.ts).
+ * This, not the per-variant photo attachVariantGalleries sets, is what the
+ * storefront actually swaps to when a shopper picks a color — its own
+ * `getColorGallery` tries this metafield first, before ever looking at a
+ * variant's image. `type` is omitted, same convention buildMetafields uses
+ * for this store's other pre-created metafield definitions. Not yet
+ * execution-tested against this store's actual field (only the general
+ * list-reference JSON-array-of-GIDs format is a documented Shopify
+ * convention) — verify on one non-critical product first. A color outside
+ * the 3 the storefront recognizes (colorGalleryMetafieldKey returns
+ * undefined) is silently skipped, never errors.
+ */
+async function writeColorGalleryMetafields(productGid: string, mediaIdsByColor: Map<string, string[]>): Promise<void> {
+  const metafields = Array.from(mediaIdsByColor.entries())
+    .map(([color, mediaIds]) => ({ key: colorGalleryMetafieldKey(color), mediaIds }))
+    .filter((entry): entry is { key: string; mediaIds: string[] } => Boolean(entry.key) && entry.mediaIds.length > 0)
+    .map(({ key, mediaIds }) => ({
+      ownerId: productGid,
+      namespace: "custom",
+      key,
+      value: JSON.stringify(mediaIds),
+    }));
+
+  if (metafields.length === 0) return;
+
+  const data = await shopifyGraphQL<{
+    metafieldsSet: { userErrors: { field?: string[] | null; message: string }[] };
+  }>(
+    `mutation setColorGalleries($metafields: [MetafieldsSetInput!]!) {
+      metafieldsSet(metafields: $metafields) {
+        userErrors { field message }
+      }
+    }`,
+    { metafields }
+  );
+  assertNoUserErrors(data.metafieldsSet.userErrors, "metafieldsSet (color gallery)");
+}
+
+/**
+ * Creates a fully-formed product — title, description, tags, images,
+ * variants (price/stock per Color/Size combination, or a single default
+ * variant when none are configured) — in one call via `productSet`, run
+ * synchronously so the new product's id comes back directly instead of
+ * needing a follow-up poll. `productSet` (rather than the older
+ * `productCreate` + `productVariantsBulkUpdate` + a separate inventory call)
+ * is Shopify's current recommended single-request way to do this — every
+ * field lands atomically instead of the product briefly existing
+ * half-configured between several calls. Variant photo galleries (anything
+ * with `useDefaultImages: false`) are attached in a follow-up step once the
+ * variants have real ids — see attachVariantGalleries above.
  * https://shopify.dev/docs/api/admin-graphql/latest/mutations/productSet
  */
 async function createShopifyProduct(input: CreateShopifyProductInput): Promise<string> {
+  const baseImages = input.images.filter((image) => !image.color);
+  // Whichever row (if any) is flagged `useDefaultImages` should get its own
+  // gallery metafield too, populated from the same base photos every other
+  // variant already falls back to — not just the non-default colors. Tagged
+  // copies of the base images (not the base images themselves — `files`
+  // below still handles those, atomically, as always) flow through the same
+  // staging/metafield pipeline as any other color's gallery.
+  const defaultImagesColor = input.variants.find((v) => v.useDefaultImages)?.color;
+  const galleryImages = [
+    ...input.images.filter((image) => image.color),
+    ...(defaultImagesColor ? baseImages.map((image) => ({ ...image, color: defaultImagesColor })) : []),
+  ];
+
   const [locationId, resourceUrls, categoryId, collectionIds] = await Promise.all([
     getPrimaryLocationId(),
-    Promise.all(input.images.map((image) => stageImageUpload(image))),
+    Promise.all(baseImages.map((image) => stageImageUpload(image))),
     resolveCategoryId(input.productType),
     resolveCollectionIds(input.collections ?? []),
   ]);
 
-  const files = input.images.map((image, i) => ({
+  const files = baseImages.map((image, i) => ({
     originalSource: resourceUrls[i],
     alt: image.alt,
     filename: image.filename,
     contentType: "IMAGE",
   }));
+
+  const { productOptions, variants: variantsInput } = buildVariantsInput(
+    input.price,
+    input.inventory,
+    input.variants,
+    locationId
+  );
 
   const data = await shopifyGraphQL<{
     productSet: {
@@ -539,18 +967,9 @@ async function createShopifyProduct(input: CreateShopifyProductInput): Promise<s
         // the key out entirely is consistent with how categoryId above only
         // appears when resolved.
         ...(collectionIds.length > 0 ? { collections: collectionIds } : {}),
-        // The single default option every variantless-options product gets —
-        // see this function's doc comment for why this has to be spelled out
-        // explicitly now instead of just omitted.
-        productOptions: [{ name: "Title", values: [{ name: "Default Title" }] }],
+        productOptions,
         metafields: buildMetafields(input),
-        variants: [
-          {
-            price: input.price,
-            inventoryQuantities: [{ locationId, name: "available", quantity: input.inventory }],
-            optionValues: [{ optionName: "Title", name: "Default Title" }],
-          },
-        ],
+        variants: variantsInput,
       },
     }
   );
@@ -560,6 +979,19 @@ async function createShopifyProduct(input: CreateShopifyProductInput): Promise<s
   if (!productId) {
     throw new Error("Shopify did not return a product id after creation.");
   }
+
+  if (galleryImages.length > 0) {
+    const [mediaIdByFilename, variantIdByKey] = await Promise.all([
+      stageGalleryMedia(productId, galleryImages),
+      getExistingVariantIdsByKey(productId),
+    ]);
+    const mediaIdsByColor = groupMediaIdsByColor(galleryImages, mediaIdByFilename);
+    await Promise.all([
+      attachVariantGalleries(productId, input.variants, mediaIdsByColor, variantIdByKey),
+      writeColorGalleryMetafields(productId, mediaIdsByColor),
+    ]);
+  }
+
   return productId;
 }
 
@@ -837,6 +1269,293 @@ export async function updateShopifyProductListing(input: UpdateShopifyListingInp
   assertNoUserErrors(data.productUpdate.userErrors, "productUpdate (listing sync)");
 
   await replaceProductMedia(productGid, input.images);
+}
+
+// ── Post-publish variants sync ──────────────────────────────────────────
+// The Variants panel's "Save Variants" action (api/products/[productId]/
+// variants/route.ts), for a product that's already been published — updates
+// existing variants in place and creates new ones via the same productSet
+// mutation used at initial publish (confirmed live against this store's
+// schema: productSet accepts an `identifier: { id }` argument to target an
+// existing product instead of creating a new one). Unlike
+// updateShopifyProductListing's replaceProductMedia (delete-then-recreate),
+// this never removes an existing Shopify variant that no longer has a
+// matching row here — a merchant who wants a variant gone can archive/delete
+// it by hand in Shopify; automatically deleting variants (and any order
+// history tied to them) is a much higher-risk operation than this feature
+// needs to take on.
+
+export interface SyncShopifyVariantsInput {
+  shopifyProductId: string;
+  price: number;
+  inventory: number;
+  variants: ShopifyVariantInput[];
+  images: ShopifyImageInput[];
+}
+
+/**
+ * Every existing variant's id + selected options, used to match a saved
+ * variant row back to the Shopify variant it should update (by Color/Size)
+ * rather than create a duplicate.
+ */
+async function getExistingVariantIdsByKey(productGid: string): Promise<Map<string, string>> {
+  const data = await shopifyGraphQL<{
+    product: { variants: { nodes: { id: string; selectedOptions: { name: string; value: string }[] }[] } } | null;
+  }>(
+    `query getVariantsForSync($id: ID!) {
+      product(id: $id) {
+        variants(first: 50) {
+          nodes { id selectedOptions { name value } }
+        }
+      }
+    }`,
+    { id: productGid }
+  );
+
+  const map = new Map<string, string>();
+  for (const variant of data.product?.variants.nodes ?? []) {
+    const color = variant.selectedOptions.find((o) => o.name === "Color")?.value ?? "";
+    const size = variant.selectedOptions.find((o) => o.name === "Size")?.value ?? "";
+    map.set(variantKey(color, size), variant.id);
+  }
+  return map;
+}
+
+/**
+ * Pushes a saved variants list to an already-published product — matches
+ * each row to its existing Shopify variant (by Color/Size) and updates it in
+ * place, or creates a new one if no match exists. Throws on failure; the
+ * caller (the variants save route) is expected to catch this and flag
+ * `variantsSyncStatus: "out_of_sync"` rather than have this decide that's
+ * fine, same contract as updateShopifyProductPrice/updateShopifyProductListing.
+ *
+ * Deliberately refuses an empty `variants` list rather than silently
+ * collapsing an already-multi-variant product back down to a single
+ * "Default Title" variant — the caller should simply not call this when
+ * there's nothing to sync.
+ *
+ * Note: the base product photos get re-staged and re-uploaded fresh on
+ * every save (same trade-off as replaceProductMedia above) — harmless, but
+ * does leave the previous copy sitting in the store's Files section rather
+ * than being cleaned up automatically. Variant galleries don't have this
+ * problem — attachVariantGalleries detaches the old set before attaching
+ * the new one.
+ */
+export async function syncShopifyProductVariants(input: SyncShopifyVariantsInput): Promise<void> {
+  if (input.variants.length === 0) {
+    throw new Error(
+      "syncShopifyProductVariants requires at least one variant — clearing all variants on an already-published product isn't supported here; use Shopify admin directly."
+    );
+  }
+
+  const productGid = productGidFromNumericId(input.shopifyProductId);
+  const baseImages = input.images.filter((image) => !image.color);
+  // Same reasoning as createShopifyProduct above — whichever row is flagged
+  // `useDefaultImages` gets its own gallery metafield too, from tagged
+  // copies of the base images.
+  const defaultImagesColor = input.variants.find((v) => v.useDefaultImages)?.color;
+  const galleryImages = [
+    ...input.images.filter((image) => image.color),
+    ...(defaultImagesColor ? baseImages.map((image) => ({ ...image, color: defaultImagesColor })) : []),
+  ];
+
+  const [locationId, existingVariantIdByKey, resourceUrls] = await Promise.all([
+    getPrimaryLocationId(),
+    getExistingVariantIdsByKey(productGid),
+    Promise.all(baseImages.map((image) => stageImageUpload(image))),
+  ]);
+
+  const files = baseImages.map((image, i) => ({
+    originalSource: resourceUrls[i],
+    alt: image.alt,
+    filename: image.filename,
+    contentType: "IMAGE",
+  }));
+
+  const { productOptions, variants: variantsInput } = buildVariantsInput(
+    input.price,
+    input.inventory,
+    input.variants,
+    locationId,
+    existingVariantIdByKey
+  );
+
+  const data = await shopifyGraphQL<{
+    productSet: {
+      product: { id: string } | null;
+      userErrors: { field?: string[] | null; message: string }[];
+    };
+  }>(
+    `mutation syncVariants($identifier: ProductSetIdentifiers!, $productSet: ProductSetInput!, $synchronous: Boolean!) {
+      productSet(identifier: $identifier, synchronous: $synchronous, input: $productSet) {
+        product { id }
+        userErrors { field message }
+      }
+    }`,
+    {
+      identifier: { id: productGid },
+      synchronous: true,
+      productSet: {
+        files,
+        productOptions,
+        variants: variantsInput,
+      },
+    }
+  );
+
+  assertNoUserErrors(data.productSet.userErrors, "productSet (variants sync)");
+
+  if (galleryImages.length > 0) {
+    // Re-fetched *after* the update above, not the pre-update snapshot in
+    // `existingVariantIdByKey` — a brand-new row saved this round wouldn't
+    // exist yet in that earlier snapshot.
+    const [mediaIdByFilename, variantIdByKey] = await Promise.all([
+      stageGalleryMedia(productGid, galleryImages),
+      getExistingVariantIdsByKey(productGid),
+    ]);
+    const mediaIdsByColor = groupMediaIdsByColor(galleryImages, mediaIdByFilename);
+    await Promise.all([
+      attachVariantGalleries(productGid, input.variants, mediaIdsByColor, variantIdByKey),
+      writeColorGalleryMetafields(productGid, mediaIdsByColor),
+    ]);
+  }
+}
+
+// ── Import from Shopify ─────────────────────────────────────────────────
+// The reverse direction of everything else in this file: reads products
+// that already exist on Shopify (typically created by hand in admin, never
+// through this app) so api/products/import-candidates/route.ts can offer
+// them for import into the Sheet. Read-only — nothing here writes to
+// Shopify.
+
+export interface ShopifyImportCandidate {
+  /** Numeric id, same convention as ProductRecord.shopifyProductId elsewhere in this file. */
+  shopifyProductId: string;
+  title: string;
+  descriptionHtml: string;
+  tags: string[];
+  productType: string;
+  createdAt: string;
+  seoTitle: string;
+  metaDescription: string;
+  /** First 3 media previews, in Shopify's own order — mapped to hero/lifestyle/closeup by the caller. */
+  imageUrls: string[];
+  /** Lowest variant price, as a plain number — a manually-created product can have several variants (size/color), which this app's single-price model can't represent individually. */
+  price: number;
+  /** Summed across every variant, same multi-variant caveat as price above. */
+  inventory: number;
+  collections: string[];
+  /** Best-effort reads of this app's own custom metafield namespace (see buildMetafields above) — set only if a product happens to already have them (e.g. previously touched by this app, then edited by hand). null when absent, never a guess. */
+  weightGrams: number | null;
+  stone: string | null;
+  finish: string | null;
+  widthCm: number | null;
+  lengthCm: number | null;
+}
+
+/**
+ * Every non-archived Shopify product (up to `first`), newest first — an
+ * Archived product is treated as retired/no-longer-for-sale, not something
+ * worth ever offering for import. Filtered server-side via `query:
+ * "-status:archived"` (Shopify's product search syntax) rather than
+ * fetched-then-discarded, so `first` counts toward actually-importable
+ * products instead of being partly eaten by archived ones. The caller is
+ * still responsible for filtering out ones already tracked in the Sheet (by
+ * shopifyProductId) before showing them as import candidates.
+ * `inventoryQuantity` is a simple aggregate field on ProductVariant; Shopify's
+ * docs steer newer code toward inventoryItem.inventoryLevels instead, but for
+ * a best-effort import read (not a source of truth this app writes back to)
+ * the simpler field is enough.
+ */
+export async function listShopifyProductsForImport(first = 100): Promise<ShopifyImportCandidate[]> {
+  const data = await shopifyGraphQL<{
+    products: {
+      nodes: {
+        id: string;
+        title: string;
+        descriptionHtml: string;
+        tags: string[];
+        productType: string;
+        createdAt: string;
+        seo: { title: string | null; description: string | null };
+        media: { nodes: { preview: { image: { url: string } | null } | null }[] };
+        variants: { nodes: { price: string; inventoryQuantity: number | null }[] };
+        collections: { nodes: { title: string }[] };
+        weightMetafield: { value: string } | null;
+        stoneMetafield: { value: string } | null;
+        materialMetafield: { value: string } | null;
+        widthMetafield: { value: string } | null;
+        lengthMetafield: { value: string } | null;
+      }[];
+    };
+  }>(
+    `query listProductsForImport($first: Int!, $query: String!) {
+      products(first: $first, sortKey: CREATED_AT, reverse: true, query: $query) {
+        nodes {
+          id
+          title
+          descriptionHtml
+          tags
+          productType
+          createdAt
+          seo { title description }
+          media(first: 3) { nodes { preview { image { url } } } }
+          variants(first: 25) { nodes { price inventoryQuantity } }
+          collections(first: 10) { nodes { title } }
+          weightMetafield: metafield(namespace: "custom", key: "weight_display") { value }
+          stoneMetafield: metafield(namespace: "custom", key: "stone") { value }
+          materialMetafield: metafield(namespace: "custom", key: "material") { value }
+          widthMetafield: metafield(namespace: "custom", key: "width_cm") { value }
+          lengthMetafield: metafield(namespace: "custom", key: "length_cm") { value }
+        }
+      }
+    }`,
+    { first, query: "-status:archived" }
+  );
+
+  // "12g" -> 12 — the same plain-text format buildMetafields writes, not a
+  // JSON dimension value like width/length below.
+  const parseWeightMetafield = (raw: string | null | undefined): number | null => {
+    if (!raw) return null;
+    const parsed = Number.parseFloat(raw);
+    return Number.isNaN(parsed) ? null : parsed;
+  };
+  // Dimension metafields store `{"value":N,"unit":"centimeters"}` — see
+  // dimensionMetafieldValue above.
+  const parseDimensionMetafield = (raw: string | null | undefined): number | null => {
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as { value?: number };
+      return typeof parsed.value === "number" ? parsed.value : null;
+    } catch {
+      return null;
+    }
+  };
+
+  return data.products.nodes.map((node) => {
+    const prices = node.variants.nodes.map((v) => Number(v.price)).filter((p) => !Number.isNaN(p));
+    const inventory = node.variants.nodes.reduce((sum, v) => sum + (v.inventoryQuantity ?? 0), 0);
+
+    return {
+      shopifyProductId: numericIdFromGid(node.id),
+      title: node.title,
+      descriptionHtml: node.descriptionHtml,
+      tags: node.tags,
+      productType: node.productType,
+      createdAt: node.createdAt,
+      seoTitle: node.seo.title ?? "",
+      metaDescription: node.seo.description ?? "",
+      imageUrls: node.media.nodes.map((m) => m.preview?.image?.url).filter((url): url is string => Boolean(url)),
+      price: prices.length > 0 ? Math.min(...prices) : 0,
+      inventory,
+      collections: node.collections.nodes.map((c) => c.title),
+      weightGrams: parseWeightMetafield(node.weightMetafield?.value),
+      stone: node.stoneMetafield?.value ?? null,
+      finish: node.materialMetafield?.value ?? null,
+      widthCm: parseDimensionMetafield(node.widthMetafield?.value),
+      lengthCm: parseDimensionMetafield(node.lengthMetafield?.value),
+    };
+  });
 }
 
 // ── Delete gating ────────────────────────────────────────────────────────

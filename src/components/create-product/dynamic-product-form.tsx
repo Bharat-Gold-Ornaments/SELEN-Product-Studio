@@ -11,6 +11,7 @@ import {
   PRODUCT_SCHEMAS,
   EXTRA_FIELDS,
   CUSTOM_OPTION_VALUE,
+  FINISH_OPTIONS,
   defaultValuesFor,
   type ProductFormValues,
 } from "@/lib/product-schemas";
@@ -390,13 +391,25 @@ export function DynamicProductForm({ productType }: DynamicProductFormProps) {
             );
           })}
 
-          <FormField
-            label="Finish"
-            htmlFor="finish"
-            error={fieldErrors.finish?.message}
-            hint="e.g. Polished Gold, Matte Gold, Brushed Silver"
-          >
-            <Input id="finish" placeholder="Polished Gold" {...register("finish" as FieldPath<ProductFormValues>)} />
+          <FormField label="Default Finish" htmlFor="finish" error={fieldErrors.finish?.message}>
+            <Controller
+              name={"finish" as FieldPath<ProductFormValues>}
+              control={control}
+              render={({ field }) => (
+                <Select value={(field.value as string) ?? ""} onValueChange={field.onChange}>
+                  <SelectTrigger id="finish">
+                    <SelectValue placeholder="Select a finish" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FINISH_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </FormField>
 
           <FormField label="Stone" htmlFor="stone" error={fieldErrors.stone?.message}>

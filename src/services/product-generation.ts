@@ -1,6 +1,13 @@
 import "server-only";
-import { ensureProductFolders, uploadOriginal, uploadGenerated, type ProductFolders } from "@/services/google-drive";
-import { generateAllImages, generateCategoryImages } from "@/services/image-generation";
+import {
+  ensureProductFolders,
+  createFolder,
+  uploadOriginal,
+  uploadGenerated,
+  type ProductFolders,
+} from "@/services/google-drive";
+import { generateAllImages, generateCategoryImages, supportsImageToImage } from "@/services/image-generation";
+import { colorSlug } from "@/lib/variants";
 import type {
   ImagePromptVariables,
   CategoryGenerationResult,
@@ -198,4 +205,70 @@ export async function regenerateCategory(
       message: error instanceof Error ? error.message : "Image generation failed.",
     };
   }
+}
+
+function recolorReferenceNote(color: string): string {
+  return `Use the uploaded reference photo as the exact base — keep the pose, composition, lighting, and every detail identical, and change only the metal color to ${color}.`;
+}
+
+/**
+ * Generates new Hero/Lifestyle/Closeup photos for one variant Color, using
+ * the *default variant's own already-generated photo* (one per category) as
+ * the image-to-image reference — not the original front/side/worn uploads,
+ * and not a fresh from-scratch reinterpretation. The prompt instruction is
+ * deliberately the opposite of every other generation path in this file:
+ * recolorReferenceNote says "change only the color," where the normal
+ * REFERENCE_NOTE in services/leonardo.ts/services/kie.ts says "keep the
+ * finish unchanged." Only whichever categories the product actually has a
+ * default photo for get generated — a category never picked at Review is
+ * simply skipped, same "every photo category is optional" stance as the
+ * rest of this pipeline. Saved into a per-color subfolder under the
+ * product's existing `generated/` Drive folder (re-resolved via
+ * ensureProductFolders, the same session-independent lookup Review/Finalize
+ * already use elsewhere, since Finalize — where this is called from — has
+ * no in-memory generation session to read a folder id from).
+ */
+export async function generateVariantColorImages(
+  productId: string,
+  productType: ProductType,
+  variables: ImagePromptVariables,
+  defaultImages: Partial<Record<ImageCategory, { buffer: Buffer; mimeType: string }>>,
+  color: string
+): Promise<{ results: CategoryGenerationResult[]; usedTextToImageFallback: boolean }> {
+  const categories = (Object.keys(defaultImages) as ImageCategory[]).filter((category) => defaultImages[category]);
+  const referenceNote = recolorReferenceNote(color);
+
+  const [usedTextToImageFallback, settled, folders] = await Promise.all([
+    supportsImageToImage().then((supported) => !supported),
+    Promise.allSettled(
+      categories.map((category) =>
+        generateCategoryImages(
+          productType,
+          category,
+          variables,
+          [defaultImages[category]!],
+          productId,
+          referenceNote
+        )
+      )
+    ),
+    ensureProductFolders(productType, productId),
+  ]);
+
+  const rawResults: CategoryGenerationResult[] = settled.map((outcome, index) => {
+    const category = categories[index];
+    if (outcome.status === "fulfilled") {
+      return { category, status: "success", imageUrls: outcome.value };
+    }
+    return {
+      category,
+      status: "error",
+      message: outcome.reason instanceof Error ? outcome.reason.message : "Image generation failed.",
+    };
+  });
+
+  const colorFolderId = await createFolder(colorSlug(color), folders.generatedFolderId);
+  const results = await saveGeneratedImagesToDrive(colorFolderId, rawResults);
+
+  return { results, usedTextToImageFallback };
 }

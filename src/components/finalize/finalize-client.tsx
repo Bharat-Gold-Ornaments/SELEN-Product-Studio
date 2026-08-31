@@ -15,6 +15,8 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useProduct, usePublishProduct, useSyncProductListing } from "@/hooks/use-product";
 import { useAppSettings } from "@/hooks/use-settings";
 import { PricingPanel } from "@/components/pricing/pricing-panel";
+import { VariantsPanel } from "@/components/finalize/variants-panel";
+import { totalVariantInventory, type VariantRow } from "@/lib/variants";
 import { IMAGE_CATEGORY_LABELS } from "@/lib/constants";
 
 /**
@@ -35,6 +37,7 @@ export function FinalizeClient({ productId }: { productId: string }) {
 
   const [price, setPrice] = useState("");
   const [inventory, setInventory] = useState("");
+  const [variantRows, setVariantRows] = useState<VariantRow[]>([]);
   const [syncConfirmOpen, setSyncConfirmOpen] = useState(false);
   // Only seed the fields once, the first time the record loads — otherwise
   // a background refetch (React Query's default behavior) would stomp on
@@ -85,13 +88,17 @@ export function FinalizeClient({ productId }: { productId: string }) {
   ].filter((image) => image.url);
 
   const priceNumber = Number(price);
-  const inventoryNumber = Number(inventory);
+  const hasVariants = variantRows.length > 0;
+  // Once variants exist, the flat Inventory field on this screen no longer
+  // drives what gets published — the actual per-variant stock (saved
+  // independently via the Variants panel) does. The total shown/sent here is
+  // purely a reflection of that, so anything else in the app reading
+  // record.inventory (Products list, dashboard) stays meaningful.
+  const inventoryNumber = hasVariants ? totalVariantInventory(variantRows) : Number(inventory);
   const canPublish =
     price.trim() !== "" &&
     priceNumber > 0 &&
-    inventory.trim() !== "" &&
-    Number.isInteger(inventoryNumber) &&
-    inventoryNumber >= 0;
+    (hasVariants || (inventory.trim() !== "" && Number.isInteger(inventoryNumber) && inventoryNumber >= 0));
 
   // Sheets-persisted status from a previous visit — shown until this page
   // publishes again itself, at which point publish.data (with a live
@@ -165,12 +172,29 @@ export function FinalizeClient({ productId }: { productId: string }) {
           <CardTitle>Inventory</CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
-          <div className="max-w-xs space-y-1.5">
-            <Label>Inventory</Label>
-            <Input type="number" min="0" step="1" value={inventory} onChange={(e) => setInventory(e.target.value)} />
-          </div>
+          {hasVariants ? (
+            <div className="max-w-xs space-y-1.5">
+              <Label>Total Inventory (from variants)</Label>
+              <p className="flex h-9 items-center rounded-md border border-dashed border-border px-3 text-sm text-muted-foreground">
+                {inventoryNumber}
+              </p>
+            </div>
+          ) : (
+            <div className="max-w-xs space-y-1.5">
+              <Label>Inventory</Label>
+              <Input type="number" min="0" step="1" value={inventory} onChange={(e) => setInventory(e.target.value)} />
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      <VariantsPanel
+        productId={productId}
+        record={record}
+        basePrice={priceNumber}
+        ratePerGram={settingsQuery.data?.ratePerGram ?? 0}
+        onVariantsChanged={setVariantRows}
+      />
 
       <PricingPanel
         productId={productId}
