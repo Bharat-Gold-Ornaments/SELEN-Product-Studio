@@ -170,5 +170,7 @@ export function buildImportedProductRecord(
     variantsSyncStatus: "",
     variantsSyncedAt: "",
     variantColorImages: "",
+    inventorySyncStatus: "",
+    inventorySyncedAt: "",
   };
 }

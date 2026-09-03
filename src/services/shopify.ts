@@ -1163,6 +1163,76 @@ export async function updateShopifyProductPrice(input: UpdateShopifyPriceInput):
   }
 }
 
+/**
+ * Looks up an already-published, variant-less product's single variant's
+ * inventory item id — `inventorySetQuantities` below addresses stock by
+ * inventoryItemId + locationId, not by variant id, so this is fetched fresh
+ * rather than stored anywhere (same reasoning as getDefaultVariantId above).
+ */
+async function getDefaultVariantInventoryItemId(productGid: string): Promise<string> {
+  const data = await shopifyGraphQL<{
+    product: { variants: { nodes: { inventoryItem: { id: string } }[] } } | null;
+  }>(
+    `query getVariantInventoryItem($id: ID!) {
+      product(id: $id) {
+        variants(first: 1) { nodes { inventoryItem { id } } }
+      }
+    }`,
+    { id: productGid }
+  );
+  const inventoryItemId = data.product?.variants.nodes[0]?.inventoryItem.id;
+  if (!inventoryItemId) {
+    throw new Error(`Shopify product ${productGid} has no variant to update.`);
+  }
+  return inventoryItemId;
+}
+
+export interface UpdateShopifyInventoryInput {
+  shopifyProductId: string;
+  /** The absolute stock count to set — not a delta. */
+  inventory: number;
+}
+
+/**
+ * Pushes an absolute stock count to an already-published, variant-less
+ * product's single default variant — the plain Inventory field's
+ * post-publish counterpart to updateShopifyProductPrice above (see
+ * services/inventory.ts, which mirrors services/pricing.ts's "sync
+ * immediately on save" decision for it). Uses `inventorySetQuantities`
+ * (Shopify's absolute "set to exactly this many" mutation) rather than the
+ * `inventoryQuantities` input buildVariantsInput sends — that field only
+ * takes effect when a variant is first created, not on an update. A product
+ * using real Color/Size variants never calls this; its per-variant stock
+ * goes through syncShopifyProductVariants instead. Throws on failure — same
+ * catch-and-flag-out_of_sync contract as updateShopifyProductPrice.
+ */
+export async function updateShopifyProductInventory(input: UpdateShopifyInventoryInput): Promise<void> {
+  const productGid = productGidFromNumericId(input.shopifyProductId);
+  const [inventoryItemId, locationId] = await Promise.all([
+    getDefaultVariantInventoryItemId(productGid),
+    getPrimaryLocationId(),
+  ]);
+
+  const data = await shopifyGraphQL<{
+    inventorySetQuantities: { userErrors: { field?: string[] | null; message: string }[] };
+  }>(
+    `mutation setInventory($input: InventorySetQuantitiesInput!) {
+      inventorySetQuantities(input: $input) {
+        userErrors { field message }
+      }
+    }`,
+    {
+      input: {
+        name: "available",
+        reason: "correction",
+        ignoreCompareQuantity: true,
+        quantities: [{ inventoryItemId, locationId, quantity: input.inventory }],
+      },
+    }
+  );
+  assertNoUserErrors(data.inventorySetQuantities.userErrors, "inventorySetQuantities");
+}
+
 // ── Post-publish listing sync ───────────────────────────────────────────
 // Finalize's "Update Shopify Listing" action (api/products/[productId]/sync/
 // route.ts) — re-pushes title/description/tags/SEO/photos to a product

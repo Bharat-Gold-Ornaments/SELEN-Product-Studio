@@ -81,6 +81,57 @@ export function useSyncProductListing() {
   });
 }
 
+export interface SaveProductInventoryResult {
+  inventory: number;
+  inventorySyncStatus: "synced" | "out_of_sync" | "";
+  inventorySyncedAt: string;
+}
+
+/**
+ * Saves Finalize's plain (no-variants) Inventory field — see
+ * api/products/[productId]/inventory/route.ts. Only relevant when the
+ * product has no Color/Size variants; a variant-less product's stock has no
+ * other post-publish sync path otherwise.
+ */
+export function useSaveProductInventory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ productId, inventory }: { productId: string; inventory: number }) => {
+      const res = await fetch(`/api/products/${productId}/inventory`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inventory }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "Couldn't save inventory.");
+      }
+      return (await res.json()) as SaveProductInventoryResult;
+    },
+    onSuccess: (_result, { productId }) => {
+      queryClient.invalidateQueries({ queryKey: ["product", productId] });
+    },
+  });
+}
+
+/** Retries a failed Shopify inventory push for one product — the "out of sync" badge's retry button. */
+export function useRetryInventorySync() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (productId: string) => {
+      const res = await fetch(`/api/products/${productId}/inventory`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "Couldn't sync to Shopify.");
+      }
+      return (await res.json()) as SaveProductInventoryResult;
+    },
+    onSuccess: (_result, productId) => {
+      queryClient.invalidateQueries({ queryKey: ["product", productId] });
+    },
+  });
+}
+
 /**
  * Deletes a product — its Drive images and Sheet row (see the DELETE
  * handler in api/products/[productId]/route.ts; refuses anything already

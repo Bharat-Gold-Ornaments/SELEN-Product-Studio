@@ -56,6 +56,8 @@ export function buildDraftProductRecord(productId: string, values: ProductFormVa
     variantsSyncStatus: "" as const,
     variantsSyncedAt: "",
     variantColorImages: "",
+    inventorySyncStatus: "" as const,
+    inventorySyncedAt: "",
   };
 
   switch (values.productType) {

@@ -132,4 +132,13 @@ export interface ProductRecord {
   variantsSyncedAt: string;
   /** JSON-serialized VariantColorImageSet[] (see src/lib/variants.ts) — AI-generated Hero/Lifestyle/Closeup photos for every variant color other than the product's own Default Finish. Empty string until a non-default color's photos are first generated. */
   variantColorImages: string;
+  // ── Post-publish inventory sync (variant-less products only) ────────────
+  // The plain Inventory field on Finalize only drives Shopify at initial
+  // Publish time — editing it afterward needs this to actually reach
+  // Shopify, same "sync immediately on save" pattern as priceSyncStatus
+  // above. Meaningless (stays "") for a product using real Color/Size
+  // variants, which tracks its own sync state via variantsSyncStatus
+  // instead.
+  inventorySyncStatus: "synced" | "out_of_sync" | "";
+  inventorySyncedAt: string;
 }

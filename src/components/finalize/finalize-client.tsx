@@ -12,7 +12,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { useProduct, usePublishProduct, useSyncProductListing } from "@/hooks/use-product";
+import {
+  useProduct,
+  usePublishProduct,
+  useSyncProductListing,
+  useSaveProductInventory,
+  useRetryInventorySync,
+} from "@/hooks/use-product";
 import { useAppSettings } from "@/hooks/use-settings";
 import { PricingPanel } from "@/components/pricing/pricing-panel";
 import { VariantsPanel } from "@/components/finalize/variants-panel";
@@ -34,6 +40,8 @@ export function FinalizeClient({ productId }: { productId: string }) {
   const settingsQuery = useAppSettings();
   const publish = usePublishProduct();
   const syncListing = useSyncProductListing();
+  const saveInventory = useSaveProductInventory();
+  const retryInventorySync = useRetryInventorySync();
 
   const [price, setPrice] = useState("");
   const [inventory, setInventory] = useState("");
@@ -126,6 +134,28 @@ export function FinalizeClient({ productId }: { productId: string }) {
     }
   }
 
+  async function handleSaveInventory() {
+    try {
+      const result = await saveInventory.mutateAsync({ productId, inventory: Number(inventory) });
+      if (result.inventorySyncStatus === "out_of_sync") {
+        toast.warning("Inventory saved, but syncing to Shopify failed — retry from below.");
+      } else {
+        toast.success("Inventory saved.");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn't save inventory.");
+    }
+  }
+
+  async function handleRetryInventorySync() {
+    try {
+      await retryInventorySync.mutateAsync(productId);
+      toast.success("Inventory re-synced to Shopify.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn't sync to Shopify.");
+    }
+  }
+
   return (
     <PageShell
       title="Finalize"
@@ -180,9 +210,63 @@ export function FinalizeClient({ productId }: { productId: string }) {
               </p>
             </div>
           ) : (
-            <div className="max-w-xs space-y-1.5">
-              <Label>Inventory</Label>
-              <Input type="number" min="0" step="1" value={inventory} onChange={(e) => setInventory(e.target.value)} />
+            <div className="flex flex-col gap-3">
+              <div className="max-w-xs space-y-1.5">
+                <Label>Inventory</Label>
+                <Input type="number" min="0" step="1" value={inventory} onChange={(e) => setInventory(e.target.value)} />
+              </div>
+
+              {record.shopifyProductId ? (
+                <>
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5">
+                    <div className="flex items-center gap-2">
+                      {record.inventorySyncStatus === "out_of_sync" ? (
+                        <Badge variant="warning">Out of sync</Badge>
+                      ) : record.inventorySyncStatus === "synced" ? (
+                        <Badge variant="success">Synced to Shopify</Badge>
+                      ) : (
+                        <Badge variant="outline">Not yet synced</Badge>
+                      )}
+                      {record.inventorySyncedAt ? (
+                        <span className="text-xs text-muted-foreground">
+                          Last synced {new Date(record.inventorySyncedAt).toLocaleString()}
+                        </span>
+                      ) : null}
+                    </div>
+                    {record.inventorySyncStatus === "out_of_sync" ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRetryInventorySync}
+                        disabled={retryInventorySync.isPending}
+                      >
+                        {retryInventorySync.isPending ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        )}
+                        Retry sync
+                      </Button>
+                    ) : null}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="self-start"
+                    onClick={handleSaveInventory}
+                    disabled={
+                      inventory.trim() === "" ||
+                      !Number.isInteger(Number(inventory)) ||
+                      Number(inventory) < 0 ||
+                      saveInventory.isPending
+                    }
+                  >
+                    {saveInventory.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                    Save Inventory
+                  </Button>
+                </>
+              ) : null}
             </div>
           )}
         </CardContent>

@@ -141,6 +141,9 @@ const COLUMNS = [
   "variantsSyncedAt",
   // Appended for per-color AI-generated variant photos — same append-only rule.
   "variantColorImages",
+  // Appended for post-publish inventory sync (variant-less products) — same append-only rule.
+  "inventorySyncStatus",
+  "inventorySyncedAt",
 ] as const satisfies readonly (keyof ProductRecord)[];
 
 // Converts a 0-based column index to its Sheets column letter(s) — A, B, ...
@@ -255,6 +258,11 @@ function rowToRecord(row: string[]): ProductRecord {
     })(),
     variantsSyncedAt: get(38),
     variantColorImages: get(39),
+    inventorySyncStatus: ((): ProductRecord["inventorySyncStatus"] => {
+      const raw = get(40);
+      return raw === "synced" || raw === "out_of_sync" ? raw : "";
+    })(),
+    inventorySyncedAt: get(41),
   };
 }
 
