@@ -273,9 +273,54 @@ function rowToRecord(row: string[]): ProductRecord {
 
 let headerEnsured = false;
 
+/**
+ * Grows the tab's actual column grid to fit COLUMNS if it's currently
+ * narrower. A sheet's grid has a fixed width independent of how many
+ * columns actually have data in them — a tab created (or last resized)
+ * before a field was appended to COLUMNS can have fewer real grid columns
+ * than COLUMNS now needs, and Sheets refuses to write into a column past
+ * the grid's current width even via values.update ("Range ... exceeds grid
+ * limits: Max columns: N"), the same failure mode deleteProductRow's
+ * deleteDimension would hit on a too-narrow *row* count. Called once per
+ * server instance from ensureHeaderRow, before it ever tries to write a
+ * header cell out there. Also opportunistically caches sheetId, same value
+ * getSheetId fetches separately, so a later deleteProductRow call in this
+ * instance doesn't need its own round trip.
+ */
+async function ensureColumnCapacity(): Promise<void> {
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.get({
+    spreadsheetId: spreadsheetId(),
+    fields: "sheets.properties(sheetId,title,gridProperties.columnCount)",
+  });
+  const match = res.data.sheets?.find((s) => s.properties?.title === tabName());
+  const sheetId = match?.properties?.sheetId;
+  if (sheetId == null) return;
+  cachedSheetId = sheetId;
+
+  const columnCount = match?.properties?.gridProperties?.columnCount ?? 0;
+  if (columnCount >= COLUMNS.length) return;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: spreadsheetId(),
+    requestBody: {
+      requests: [
+        {
+          appendDimension: {
+            sheetId,
+            dimension: "COLUMNS",
+            length: COLUMNS.length - columnCount,
+          },
+        },
+      ],
+    },
+  });
+}
+
 async function ensureHeaderRow(): Promise<void> {
   if (headerEnsured) return;
   const sheets = getSheetsClient();
+  await ensureColumnCapacity();
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: spreadsheetId(),
