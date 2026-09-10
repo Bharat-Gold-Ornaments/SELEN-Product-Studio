@@ -9,6 +9,7 @@ import {
   FileText,
   Settings,
   Camera,
+  Percent,
   type LucideIcon,
 } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/constants";
@@ -21,6 +22,7 @@ const ICONS: Record<string, LucideIcon> = {
   FileText,
   Settings,
   Camera,
+  Percent,
 };
 
 /**

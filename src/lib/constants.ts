@@ -37,6 +37,7 @@ export const NAV_ITEMS = [
   { href: "/products/create", label: "Create Product", icon: "Sparkles" },
   { href: "/uploads", label: "Upload Photos", icon: "Camera" },
   { href: "/templates", label: "Template Manager", icon: "FileText" },
+  { href: "/discounts", label: "Discounts", icon: "Percent" },
   { href: "/settings", label: "Settings", icon: "Settings" },
 ] as const;
 

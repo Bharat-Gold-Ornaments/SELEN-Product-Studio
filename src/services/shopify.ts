@@ -243,6 +243,221 @@ async function resolveCollectionIds(titles: string[]): Promise<string[]> {
   return ids;
 }
 
+// ── Discounts ────────────────────────────────────────────────────────────
+// Backs the Discounts tab: apply or remove a percentage discount across the
+// whole catalog, one collection, or one tag. Unlike the Pricing Dashboard
+// sync above (which only ever touches a product's single default variant),
+// a discount must reach every variant of every matching product, since
+// products here can have color/size variants.
+
+export type DiscountScope =
+  | { type: "global" }
+  | { type: "collection"; collectionId: string }
+  | { type: "tag"; tag: string };
+
+interface ScopeVariant {
+  id: string;
+  price: string;
+  compareAtPrice: string | null;
+}
+
+interface ScopeProduct {
+  id: string;
+  title: string;
+  variants: ScopeVariant[];
+}
+
+let cachedTags: string[] | null = null;
+
+/**
+ * Every distinct tag in use across active products — there's no dedicated
+ * "list all tags" field in the Admin API, so this aggregates `tags` off a
+ * best-effort scan of up to 250 active products (matches this store's full
+ * catalog size). Powers the Discounts tab's tag picker. Cached per server
+ * instance, same reasoning as listCollections above.
+ */
+export async function listAllTags(): Promise<string[]> {
+  if (cachedTags) return cachedTags;
+
+  const data = await shopifyGraphQL<{ products: { nodes: { tags: string[] }[] } }>(
+    `query { products(first: 250, query: "-status:archived") { nodes { tags } } }`,
+    {}
+  );
+  const tags = new Set<string>();
+  for (const node of data.products.nodes) {
+    for (const tag of node.tags) tags.add(tag);
+  }
+  cachedTags = Array.from(tags).sort((a, b) => a.localeCompare(b));
+  return cachedTags;
+}
+
+/** Escapes a value for Shopify's quoted search-query syntax (`tag:'...'`). */
+function escapeSearchQueryValue(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+const SCOPE_PRODUCT_FIELDS = `
+  id
+  title
+  variants(first: 50) {
+    nodes { id price compareAtPrice }
+  }
+`;
+
+/** Raw shape of one product node as the queries below actually return it — variants nested under `.nodes`. */
+interface ScopeProductNode {
+  id: string;
+  title: string;
+  variants: { nodes: ScopeVariant[] };
+}
+
+function flattenScopeProduct(node: ScopeProductNode): ScopeProduct {
+  return { id: node.id, title: node.title, variants: node.variants.nodes };
+}
+
+/**
+ * Every product (and every one of its variants) matching a discount scope.
+ * `global` and `tag` both search the flat product list (Shopify's search
+ * syntax handles `-status:archived AND tag:'x'` directly); `collection`
+ * instead walks that collection's own `products` connection, since
+ * collection membership isn't expressible as a `products(query:)` filter.
+ */
+export async function resolveScopeVariants(scope: DiscountScope): Promise<ScopeProduct[]> {
+  if (scope.type === "collection") {
+    const data = await shopifyGraphQL<{
+      collection: { products: { nodes: ScopeProductNode[] } } | null;
+    }>(
+      `query getCollectionProducts($id: ID!) {
+        collection(id: $id) {
+          products(first: 250) {
+            nodes { ${SCOPE_PRODUCT_FIELDS} }
+          }
+        }
+      }`,
+      { id: scope.collectionId }
+    );
+    return (data.collection?.products.nodes ?? []).map(flattenScopeProduct);
+  }
+
+  const query =
+    scope.type === "tag"
+      ? `-status:archived AND tag:'${escapeSearchQueryValue(scope.tag)}'`
+      : "-status:archived";
+
+  const data = await shopifyGraphQL<{ products: { nodes: ScopeProductNode[] } }>(
+    `query getScopeProducts($query: String!) {
+      products(first: 250, query: $query) {
+        nodes { ${SCOPE_PRODUCT_FIELDS} }
+      }
+    }`,
+    { query }
+  );
+  return data.products.nodes.map(flattenScopeProduct);
+}
+
+export interface DiscountResult {
+  productsUpdated: number;
+  variantsUpdated: number;
+  failed: { productId: string; message: string }[];
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+async function bulkUpdateVariants(
+  productId: string,
+  variants: { id: string; price: number; compareAtPrice: number | null }[]
+): Promise<void> {
+  const data = await shopifyGraphQL<{
+    productVariantsBulkUpdate: { userErrors: { field?: string[] | null; message: string }[] };
+  }>(
+    `mutation applyDiscount($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+      productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+        userErrors { field message }
+      }
+    }`,
+    { productId, variants }
+  );
+  assertNoUserErrors(data.productVariantsBulkUpdate.userErrors, "productVariantsBulkUpdate (discount)");
+}
+
+/**
+ * Applies a percent-off discount to every variant in scope. Rebases off each
+ * variant's true original price (`compareAtPrice` if it's already discounted,
+ * otherwise its current `price`) rather than its current price, so re-running
+ * this at a different percentage is never compounding — it always discounts
+ * from the same original, not from an already-discounted price.
+ */
+export async function applyDiscountToScope(
+  scope: DiscountScope,
+  percent: number
+): Promise<DiscountResult> {
+  const products = await resolveScopeVariants(scope);
+  let productsUpdated = 0;
+  let variantsUpdated = 0;
+  const failed: { productId: string; message: string }[] = [];
+
+  for (const product of products) {
+    try {
+      const variantInputs = product.variants.map((variant) => {
+        const original = variant.compareAtPrice ? Number(variant.compareAtPrice) : Number(variant.price);
+        return {
+          id: variant.id,
+          price: round2(original * (1 - percent / 100)),
+          compareAtPrice: original,
+        };
+      });
+      await bulkUpdateVariants(product.id, variantInputs);
+      productsUpdated++;
+      variantsUpdated += variantInputs.length;
+    } catch (error) {
+      failed.push({
+        productId: product.id,
+        message: error instanceof Error ? error.message : "Unknown error.",
+      });
+    }
+  }
+
+  return { productsUpdated, variantsUpdated, failed };
+}
+
+/**
+ * Reverses a discount: every variant in scope that currently has a
+ * `compareAtPrice` gets its `price` restored to that value and its
+ * `compareAtPrice` cleared. Variants with no `compareAtPrice` are left
+ * untouched (nothing to remove) and don't count toward the totals.
+ */
+export async function removeDiscountFromScope(scope: DiscountScope): Promise<DiscountResult> {
+  const products = await resolveScopeVariants(scope);
+  let productsUpdated = 0;
+  let variantsUpdated = 0;
+  const failed: { productId: string; message: string }[] = [];
+
+  for (const product of products) {
+    const discounted = product.variants.filter((v) => v.compareAtPrice != null);
+    if (discounted.length === 0) continue;
+
+    try {
+      const variantInputs = discounted.map((variant) => ({
+        id: variant.id,
+        price: Number(variant.compareAtPrice),
+        compareAtPrice: null,
+      }));
+      await bulkUpdateVariants(product.id, variantInputs);
+      productsUpdated++;
+      variantsUpdated += variantInputs.length;
+    } catch (error) {
+      failed.push({
+        productId: product.id,
+        message: error instanceof Error ? error.message : "Unknown error.",
+      });
+    }
+  }
+
+  return { productsUpdated, variantsUpdated, failed };
+}
+
 // ── Image upload ─────────────────────────────────────────────────────────
 
 export interface ShopifyImageInput {
