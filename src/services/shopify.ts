@@ -1418,8 +1418,12 @@ export interface UpdateShopifyInventoryInput {
  * `inventoryQuantities` input buildVariantsInput sends — that field only
  * takes effect when a variant is first created, not on an update. A product
  * using real Color/Size variants never calls this; its per-variant stock
- * goes through syncShopifyProductVariants instead. Throws on failure — same
- * catch-and-flag-out_of_sync contract as updateShopifyProductPrice.
+ * goes through syncShopifyProductVariants instead. `changeFromQuantity: null`
+ * skips Shopify's compare-and-swap check (successor to the removed
+ * `ignoreCompareQuantity` field) since we always want to overwrite with the
+ * absolute count regardless of what's currently on Shopify. Throws on
+ * failure — same catch-and-flag-out_of_sync contract as
+ * updateShopifyProductPrice.
  */
 export async function updateShopifyProductInventory(input: UpdateShopifyInventoryInput): Promise<void> {
   const productGid = productGidFromNumericId(input.shopifyProductId);
@@ -1440,8 +1444,9 @@ export async function updateShopifyProductInventory(input: UpdateShopifyInventor
       input: {
         name: "available",
         reason: "correction",
-        ignoreCompareQuantity: true,
-        quantities: [{ inventoryItemId, locationId, quantity: input.inventory }],
+        quantities: [
+          { inventoryItemId, locationId, quantity: input.inventory, changeFromQuantity: null },
+        ],
       },
     }
   );
