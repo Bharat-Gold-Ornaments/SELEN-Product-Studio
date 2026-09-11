@@ -20,8 +20,8 @@ export const HOOK_TYPE_OPTIONS = [
 /** Sentinel value for a "select-custom" field's "Other (specify)" option — never a real option value itself, so it can't collide with a real hook type. */
 export const CUSTOM_OPTION_VALUE = "__custom__";
 
-export const RING_SIZE_OPTIONS = Array.from({ length: 19 }, (_, i) => {
-  const size = 4 + i * 0.5; // 4 -> 13 in half sizes
+export const RING_SIZE_OPTIONS = Array.from({ length: 29 }, (_, i) => {
+  const size = 4 + i * 0.5; // 4 -> 18 in half sizes
   return size.toString();
 });
 
