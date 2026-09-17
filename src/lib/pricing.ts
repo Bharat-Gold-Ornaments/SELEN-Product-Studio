@@ -125,8 +125,10 @@ export interface PriceBreakdown {
   stoneCharges: number;
   /** Pre-GST subtotal — metalCost + makingCharge + stoneCharges, equal to computeRawPrice(inputs). */
   subtotal: number;
-  /** Back-derived as total - subtotal (rather than subtotal * GST_RATE) so the displayed lines always sum exactly to `total`, the actual charm-rounded sticker price. */
+  /** The actual GST amount — subtotal * GST_RATE. */
   gst: number;
+  /** Subtotal + gst, before charm-rounding — i.e. subtotal * (1 + GST_RATE). Shown separately from `total` since rounding moves the final sticker price away from this exact figure. */
+  priceWithGst: number;
   /** The final, GST-inclusive, charm-rounded price — same value computeFinalPrice(inputs) returns. */
   total: number;
 }
@@ -146,10 +148,11 @@ export function computePriceBreakdown(inputs: PriceInputs): PriceBreakdown {
   const stoneCharges = pricingCase === "B" ? sumStoneCharges(inputs.stoneLineItems) : 0;
 
   const subtotal = computeRawPrice(inputs);
+  const gst = subtotal * GST_RATE;
+  const priceWithGst = subtotal + gst;
   const total = computeFinalPrice(inputs);
-  const gst = total - subtotal;
 
-  return { metalCost, makingCharge, stoneCharges, subtotal, gst, total };
+  return { metalCost, makingCharge, stoneCharges, subtotal, gst, priceWithGst, total };
 }
 
 /**

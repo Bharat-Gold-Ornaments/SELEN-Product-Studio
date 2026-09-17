@@ -99,13 +99,15 @@ export function PricingPanel({ productId, record, ratePerGram, onPriced }: Prici
   // amount, GST, and the resulting total — so it's modelled as a
   // PriceBreakdown too, letting the summary block below stay one path
   // instead of branching computed vs. override separately.
+  const overrideGst = overridePriceNumber * GST_RATE;
   const breakdown: PriceBreakdown = manualOverride
     ? {
         metalCost: 0,
         makingCharge: 0,
         stoneCharges: 0,
         subtotal: overridePriceNumber,
-        gst: overrideFinalPrice - overridePriceNumber,
+        gst: overrideGst,
+        priceWithGst: overridePriceNumber + overrideGst,
         total: overrideFinalPrice,
       }
     : computePriceBreakdown(priceInputs);
@@ -273,12 +275,14 @@ export function PricingPanel({ productId, record, ratePerGram, onPriced }: Prici
             <span>GST ({(GST_RATE * 100).toFixed(0)}%)</span>
             <span>₹{breakdown.gst.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
           </div>
+          <div className="flex items-center justify-between border-t border-border pt-1.5 text-muted-foreground">
+            <span>Computed price (incl. GST)</span>
+            <span>₹{breakdown.priceWithGst.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+          </div>
         </div>
 
         <div className="flex items-center justify-between rounded-xl bg-secondary/50 px-4 py-3">
-          <span className="text-sm text-muted-foreground">
-            {manualOverride ? "Total (incl. GST)" : "Computed price (incl. GST)"}
-          </span>
+          <span className="text-sm text-muted-foreground">Final price (rounded)</span>
           <span className="text-xl font-semibold text-foreground">₹{finalPrice.toLocaleString("en-IN")}</span>
         </div>
 
