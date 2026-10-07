@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { InventoryPhotoPicker } from "@/components/inventory/inventory-photo-picker";
 import { INVENTORY_CATEGORIES } from "@/lib/constants";
 import { useUpdateInventoryItem } from "@/hooks/use-inventory";
 import type { InventoryCategory, InventoryItem } from "@/types/inventory";
@@ -29,6 +30,8 @@ export function EditInventoryDialog({ item, onClose }: EditInventoryDialogProps)
   const [weightGrams, setWeightGrams] = useState(String(item.weightGrams));
   const [quantity, setQuantity] = useState(String(item.quantity));
   const [shopifyProductId, setShopifyProductId] = useState(item.shopifyProductId);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
 
   const update = useUpdateInventoryItem();
 
@@ -56,6 +59,8 @@ export function EditInventoryDialog({ item, onClose }: EditInventoryDialogProps)
         weightGrams: Number(weightGrams),
         quantity: Number(quantity),
         shopifyProductId: shopifyProductId.trim(),
+        photo: photo ?? undefined,
+        removePhoto: photoRemoved,
       });
       toast.success(`${trimmedSku} updated`);
       onClose();
@@ -66,7 +71,7 @@ export function EditInventoryDialog({ item, onClose }: EditInventoryDialogProps)
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
+      <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-xl">
         <DialogTitle>Edit {item.sku}</DialogTitle>
         <form onSubmit={handleSubmit} className="mt-4 grid grid-cols-2 gap-4">
           <div className="col-span-2">
@@ -128,6 +133,18 @@ export function EditInventoryDialog({ item, onClose }: EditInventoryDialogProps)
               id="editShopifyId"
               value={shopifyProductId}
               onChange={(e) => setShopifyProductId(e.target.value)}
+            />
+          </div>
+          <div className="col-span-2">
+            <Label className="mb-1.5 block text-sm font-normal">Photo</Label>
+            <InventoryPhotoPicker
+              photo={photo}
+              savedUrl={photoRemoved ? undefined : item.photoUrl || undefined}
+              onSelect={setPhoto}
+              onRemove={() => {
+                setPhoto(null);
+                setPhotoRemoved(true);
+              }}
             />
           </div>
           <div className="col-span-2 mt-2 flex justify-end gap-2">

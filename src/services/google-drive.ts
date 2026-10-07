@@ -230,13 +230,16 @@ export async function uploadGenerated(
 
 /**
  * Uploads an Inventory page photo into a flat `Inventory` folder at the
- * Drive root. Callers pass a unique file name (product code + timestamp) —
- * uploadFile overwrites by name, so a reused name would silently replace
- * another item's photo.
+ * Drive root, named `{sku}-{timestamp}` — the timestamp keeps names unique,
+ * since uploadFile overwrites by name and a reused name would silently
+ * replace another photo.
  */
-export async function uploadInventoryPhoto(fileName: string, buffer: Buffer, mimeType: string): Promise<UploadResult> {
+export async function uploadInventoryPhoto(sku: string, photo: File): Promise<UploadResult> {
   const folderId = await createFolder("Inventory", rootFolderId());
-  return uploadFile(folderId, fileName, buffer, mimeType);
+  const buffer = Buffer.from(await photo.arrayBuffer());
+  const extension = photo.name.split(".").pop() || "jpg";
+  const safeSku = sku.replace(/[^\w-]+/g, "_");
+  return uploadFile(folderId, `${safeSku}-${Date.now()}.${extension}`, buffer, photo.type || "image/jpeg");
 }
 
 export interface DriveFile {

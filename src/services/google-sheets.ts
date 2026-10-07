@@ -616,15 +616,21 @@ export interface InventoryUpdate {
   weightGrams?: number;
   shopifyProductId?: string;
   quantity?: number;
+  /** New photo's proxy URL, or "" to clear it. */
+  photoUrl?: string;
 }
 
 /**
  * Rewrites one Inventory row, found by SKU (case-insensitive, matching the
- * duplicate check in POST /api/inventory). Throws
- * if no row has that SKU, or if a rename collides with another row's SKU
+ * duplicate check in POST /api/inventory). Returns the row before and after,
+ * so a caller replacing the photo can clean up the old Drive file. Throws if
+ * no row has that SKU, or if a rename collides with another row's SKU
  * (InventorySkuConflictError).
  */
-export async function updateInventoryRow(sku: string, update: InventoryUpdate): Promise<InventoryItem> {
+export async function updateInventoryRow(
+  sku: string,
+  update: InventoryUpdate
+): Promise<{ previous: InventoryItem; item: InventoryItem }> {
   await ensureInventoryTab();
   const sheets = getSheetsClient();
 
@@ -654,5 +660,5 @@ export async function updateInventoryRow(sku: string, update: InventoryUpdate): 
     valueInputOption: "RAW",
     requestBody: { values: [inventoryItemToRow(merged)] },
   });
-  return merged;
+  return { previous: current, item: merged };
 }

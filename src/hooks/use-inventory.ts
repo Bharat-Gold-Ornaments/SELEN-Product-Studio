@@ -66,6 +66,10 @@ export interface UpdateInventoryItemInput {
   weightGrams?: number;
   shopifyProductId?: string;
   quantity?: number;
+  /** Replaces the saved photo. */
+  photo?: File;
+  /** Clears the saved photo (ignored if `photo` is set). */
+  removePhoto?: boolean;
 }
 
 /**
@@ -76,12 +80,16 @@ export function useUpdateInventoryItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ sku, newSku, ...update }: UpdateInventoryItemInput) => {
-      const res = await fetch(`/api/inventory/${encodeURIComponent(sku)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newSku === undefined ? update : { ...update, sku: newSku }),
-      });
+    mutationFn: async ({ sku, newSku, photo, removePhoto, ...fields }: UpdateInventoryItemInput) => {
+      const formData = new FormData();
+      if (newSku !== undefined) formData.append("sku", newSku);
+      for (const [key, value] of Object.entries(fields)) {
+        if (value !== undefined) formData.append(key, String(value));
+      }
+      if (photo) formData.append("photo", photo);
+      else if (removePhoto) formData.append("removePhoto", "true");
+
+      const res = await fetch(`/api/inventory/${encodeURIComponent(sku)}`, { method: "PATCH", body: formData });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         throw new Error(data?.error ?? "Couldn't update this item.");
@@ -89,13 +97,16 @@ export function useUpdateInventoryItem() {
       const data = (await res.json()) as { item: InventoryItem };
       return data.item;
     },
-    onMutate: async ({ sku, newSku, ...fields }) => {
+    // A new photo only shows once the refetch brings back its saved URL.
+    onMutate: async ({ sku, newSku, photo, removePhoto, ...fields }) => {
       await queryClient.cancelQueries({ queryKey: ["inventory"] });
       const previous = queryClient.getQueryData<InventoryItem[]>(["inventory"]);
       queryClient.setQueryData<InventoryItem[]>(["inventory"], (items) =>
         items?.map((item) => {
           if (item.sku !== sku) return item;
-          return { ...item, ...fields, sku: newSku ?? item.sku };
+          const next = { ...item, ...fields, sku: newSku ?? item.sku };
+          if (removePhoto && !photo) next.photoUrl = "";
+          return next;
         })
       );
       return { previous };

@@ -53,15 +53,7 @@ export async function POST(request: Request) {
 
     let photoUrl = "";
     if (photo instanceof File && photo.size > 0) {
-      const buffer = Buffer.from(await photo.arrayBuffer());
-      const extension = photo.name.split(".").pop() || "jpg";
-      const safeCode = sku.replace(/[^\w-]+/g, "_");
-      const uploaded = await uploadInventoryPhoto(
-        `${safeCode}-${Date.now()}.${extension}`,
-        buffer,
-        photo.type || "image/jpeg"
-      );
-      photoUrl = uploaded.publicUrl;
+      photoUrl = (await uploadInventoryPhoto(sku, photo)).publicUrl;
     }
 
     const item: InventoryItem = {
