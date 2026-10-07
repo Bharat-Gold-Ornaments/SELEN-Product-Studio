@@ -58,27 +58,29 @@ export function useAddInventoryItem() {
 }
 
 export interface UpdateInventoryItemInput {
+  /** The row's current SKU — how it's found. */
   sku: string;
+  /** Set to rename the SKU. */
+  newSku?: string;
   category?: InventoryCategory;
   weightGrams?: number;
   shopifyProductId?: string;
   quantity?: number;
-  quantityDelta?: number;
 }
 
 /**
- * Edits an existing row. Applied to the cached table immediately (so the
- * +/- buttons feel instant) and rolled back if the save fails.
+ * Edits an existing row. Applied to the cached table immediately and rolled
+ * back if the save fails.
  */
 export function useUpdateInventoryItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ sku, ...update }: UpdateInventoryItemInput) => {
+    mutationFn: async ({ sku, newSku, ...update }: UpdateInventoryItemInput) => {
       const res = await fetch(`/api/inventory/${encodeURIComponent(sku)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(update),
+        body: JSON.stringify(newSku === undefined ? update : { ...update, sku: newSku }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -87,15 +89,13 @@ export function useUpdateInventoryItem() {
       const data = (await res.json()) as { item: InventoryItem };
       return data.item;
     },
-    onMutate: async ({ sku, quantityDelta, ...fields }) => {
+    onMutate: async ({ sku, newSku, ...fields }) => {
       await queryClient.cancelQueries({ queryKey: ["inventory"] });
       const previous = queryClient.getQueryData<InventoryItem[]>(["inventory"]);
       queryClient.setQueryData<InventoryItem[]>(["inventory"], (items) =>
         items?.map((item) => {
           if (item.sku !== sku) return item;
-          const next = { ...item, ...fields };
-          if (quantityDelta !== undefined) next.quantity = Math.max(0, item.quantity + quantityDelta);
-          return next;
+          return { ...item, ...fields, sku: newSku ?? item.sku };
         })
       );
       return { previous };

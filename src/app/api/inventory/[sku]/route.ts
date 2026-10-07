@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { updateInventoryRow, type InventoryUpdate } from "@/services/google-sheets";
+import { InventorySkuConflictError, updateInventoryRow, type InventoryUpdate } from "@/services/google-sheets";
 import { INVENTORY_CATEGORIES } from "@/lib/constants";
 import type { InventoryCategory } from "@/types/inventory";
 
 const VALID_CATEGORIES = new Set<string>(INVENTORY_CATEGORIES.map((c) => c.value));
 
 /**
- * Edits an existing Inventory row. Every field is optional; send either
- * `quantity` (set it) or `quantityDelta` (adjust it), not both. Quantity may
+ * Edits an existing Inventory row. Every field is optional. Quantity may
  * drop to 0 here (sold out) even though a new item must start at 1 or more.
  */
 export async function PATCH(request: Request, { params }: { params: Promise<{ sku: string }> }) {
@@ -18,6 +17,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sk
   }
 
   const update: InventoryUpdate = {};
+
+  if (body.sku !== undefined) {
+    const newSku = String(body.sku).trim();
+    if (!newSku) {
+      return NextResponse.json({ error: "SKU can't be empty." }, { status: 400 });
+    }
+    update.sku = newSku;
+  }
 
   if (body.category !== undefined) {
     if (typeof body.category !== "string" || !VALID_CATEGORIES.has(body.category)) {
@@ -35,22 +42,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sk
   if (body.shopifyProductId !== undefined) {
     update.shopifyProductId = String(body.shopifyProductId).trim();
   }
-  if (body.quantity !== undefined && body.quantityDelta !== undefined) {
-    return NextResponse.json({ error: "Send either quantity or quantityDelta, not both." }, { status: 400 });
-  }
   if (body.quantity !== undefined) {
     const quantity = Number(body.quantity);
     if (!Number.isInteger(quantity) || quantity < 0) {
       return NextResponse.json({ error: "Quantity must be a whole number of 0 or more." }, { status: 400 });
     }
     update.quantity = quantity;
-  }
-  if (body.quantityDelta !== undefined) {
-    const delta = Number(body.quantityDelta);
-    if (!Number.isInteger(delta)) {
-      return NextResponse.json({ error: "quantityDelta must be a whole number." }, { status: 400 });
-    }
-    update.quantityDelta = delta;
   }
 
   try {
@@ -59,7 +56,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sk
   } catch (error) {
     console.error(`Failed to update inventory item ${sku}`, error);
     const message = error instanceof Error ? error.message : "Couldn't update this item.";
-    const status = message.startsWith("No inventory row") ? 404 : 500;
+    const status =
+      error instanceof InventorySkuConflictError ? 409 : message.startsWith("No inventory row") ? 404 : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

@@ -23,8 +23,8 @@ interface EditInventoryDialogProps {
   onClose: () => void;
 }
 
-/** SKU isn't editable — it's how the row is found in the sheet. */
 export function EditInventoryDialog({ item, onClose }: EditInventoryDialogProps) {
+  const [sku, setSku] = useState(item.sku);
   const [category, setCategory] = useState<InventoryCategory>(item.category);
   const [weightGrams, setWeightGrams] = useState(String(item.weightGrams));
   const [quantity, setQuantity] = useState(String(item.quantity));
@@ -34,6 +34,11 @@ export function EditInventoryDialog({ item, onClose }: EditInventoryDialogProps)
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    const trimmedSku = sku.trim();
+    if (!trimmedSku) {
+      toast.error("Enter a SKU.");
+      return;
+    }
     if (!(Number(weightGrams) > 0)) {
       toast.error("Enter a weight greater than 0.");
       return;
@@ -46,12 +51,13 @@ export function EditInventoryDialog({ item, onClose }: EditInventoryDialogProps)
     try {
       await update.mutateAsync({
         sku: item.sku,
+        newSku: trimmedSku !== item.sku ? trimmedSku : undefined,
         category,
         weightGrams: Number(weightGrams),
         quantity: Number(quantity),
         shopifyProductId: shopifyProductId.trim(),
       });
-      toast.success(`${item.sku} updated`);
+      toast.success(`${trimmedSku} updated`);
       onClose();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Couldn't update this item.");
@@ -63,6 +69,12 @@ export function EditInventoryDialog({ item, onClose }: EditInventoryDialogProps)
       <DialogContent className="max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
         <DialogTitle>Edit {item.sku}</DialogTitle>
         <form onSubmit={handleSubmit} className="mt-4 grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <Label htmlFor="editSku" className="mb-1.5 block text-sm font-normal">
+              SKU
+            </Label>
+            <Input id="editSku" value={sku} onChange={(e) => setSku(e.target.value)} />
+          </div>
           <div className="col-span-2">
             <Label htmlFor="editCategory" className="mb-1.5 block text-sm font-normal">
               Category

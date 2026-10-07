@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { Camera, FolderOpen, ImageOff, Loader2, Minus, Pencil, Plus, RefreshCw, TriangleAlert, X } from "lucide-react";
+import { Camera, FolderOpen, ImageOff, Loader2, Pencil, Plus, RefreshCw, TriangleAlert, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,7 @@ import { PhotoCropDialog } from "@/components/uploads/photo-crop-dialog";
 import { EditInventoryDialog } from "@/components/inventory/edit-inventory-dialog";
 import { INVENTORY_CATEGORIES } from "@/lib/constants";
 import { cn, formatDate, formatGrams } from "@/lib/utils";
-import { useAddInventoryItem, useInventory, useUpdateInventoryItem } from "@/hooks/use-inventory";
+import { useAddInventoryItem, useInventory } from "@/hooks/use-inventory";
 import type { InventoryCategory, InventoryItem } from "@/types/inventory";
 
 const CATEGORY_LABEL = Object.fromEntries(INVENTORY_CATEGORIES.map((c) => [c.value, c.label])) as Record<
@@ -44,15 +44,7 @@ export function InventoryClient() {
 
   const { data: items, isLoading, isError, error, refetch, isFetching } = useInventory();
   const addItem = useAddInventoryItem();
-  const updateItem = useUpdateInventoryItem();
   const [editing, setEditing] = useState<InventoryItem | null>(null);
-
-  function adjustQuantity(sku: string, quantityDelta: number) {
-    updateItem.mutate(
-      { sku, quantityDelta },
-      { onError: (err) => toast.error(err instanceof Error ? err.message : "Couldn't update the quantity.") }
-    );
-  }
 
   useEffect(() => {
     if (!photo) {
@@ -109,8 +101,11 @@ export function InventoryClient() {
     }
   }
 
-  // Newest first — the sheet itself stays in append order.
-  const rows = items ? [...items].reverse() : [];
+  // Sorted by SKU, with number-aware ordering so R-2 comes before R-10. The
+  // sheet itself stays in append order.
+  const rows = items
+    ? [...items].sort((a, b) => a.sku.localeCompare(b.sku, undefined, { numeric: true, sensitivity: "base" }))
+    : [];
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -318,35 +313,10 @@ export function InventoryClient() {
                         <Badge variant="secondary">{CATEGORY_LABEL[item.category] ?? item.category}</Badge>
                       </td>
                       <td className="px-4 py-2 text-right tabular-nums">{formatGrams(item.weightGrams)}</td>
-                      <td className="px-4 py-2">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => adjustQuantity(item.sku, -1)}
-                            disabled={item.quantity <= 0}
-                            aria-label={`Decrease quantity of ${item.sku}`}
-                          >
-                            <Minus className="h-3.5 w-3.5" />
-                          </Button>
-                          <span
-                            className={cn("w-8 text-center tabular-nums", item.quantity === 0 && "text-destructive")}
-                          >
-                            {item.quantity}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => adjustQuantity(item.sku, 1)}
-                            aria-label={`Increase quantity of ${item.sku}`}
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
+                      <td
+                        className={cn("px-4 py-2 text-right tabular-nums", item.quantity === 0 && "text-destructive")}
+                      >
+                        {item.quantity}
                       </td>
                       <td className="px-4 py-2 text-muted-foreground">{item.shopifyProductId || "—"}</td>
                       <td className="px-4 py-2 text-muted-foreground">

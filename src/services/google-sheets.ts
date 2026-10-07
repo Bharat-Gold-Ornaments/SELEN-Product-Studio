@@ -602,24 +602,27 @@ export async function appendInventoryRow(item: InventoryItem): Promise<void> {
   });
 }
 
+export class InventorySkuConflictError extends Error {
+  constructor(sku: string) {
+    super(`SKU "${sku}" is already in inventory.`);
+    this.name = "InventorySkuConflictError";
+  }
+}
+
 export interface InventoryUpdate {
+  /** Renames the row's SKU; rejected if another row already uses it. */
+  sku?: string;
   category?: InventoryCategory;
   weightGrams?: number;
   shopifyProductId?: string;
-  /** Absolute quantity — the Edit dialog. */
   quantity?: number;
-  /**
-   * Relative change — the table's +/- buttons. Applied to the row's value as
-   * read here rather than to whatever the browser last saw, so two quick
-   * clicks (or two people) don't overwrite each other's change.
-   */
-  quantityDelta?: number;
 }
 
 /**
  * Rewrites one Inventory row, found by SKU (case-insensitive, matching the
- * duplicate check in POST /api/inventory). Quantity is floored at 0. Throws
- * if no row has that SKU.
+ * duplicate check in POST /api/inventory). Throws
+ * if no row has that SKU, or if a rename collides with another row's SKU
+ * (InventorySkuConflictError).
  */
 export async function updateInventoryRow(sku: string, update: InventoryUpdate): Promise<InventoryItem> {
   await ensureInventoryTab();
@@ -635,11 +638,14 @@ export async function updateInventoryRow(sku: string, update: InventoryUpdate): 
     throw new Error(`No inventory row found for SKU ${sku}.`);
   }
 
+  if (update.sku !== undefined) {
+    const newSku = update.sku.toLowerCase();
+    const taken = rows.some((row, i) => i !== index && String(row[0] ?? "").toLowerCase() === newSku);
+    if (taken) throw new InventorySkuConflictError(update.sku);
+  }
+
   const current = rowToInventoryItem(rows[index].map((value) => (value == null ? "" : String(value))));
-  const { quantityDelta, ...fields } = update;
-  const merged: InventoryItem = { ...current, ...fields };
-  if (quantityDelta !== undefined) merged.quantity = current.quantity + quantityDelta;
-  merged.quantity = Math.max(0, merged.quantity);
+  const merged: InventoryItem = { ...current, ...update };
 
   const rowNumber = index + 2; // +1 for 0-index, +1 for header row
   await sheets.spreadsheets.values.update({
