@@ -2,6 +2,7 @@ import "server-only";
 import { google, type sheets_v4 } from "googleapis";
 import { requireEnv, optionalEnv } from "@/lib/env";
 import type { ProductRecord, ProductType, ProductStatus } from "@/types/product";
+import type { InventoryCategory, InventoryItem } from "@/types/inventory";
 
 // ── Client setup ─────────────────────────────────────────────────────────
 // Mirrors services/google-drive.ts: a lazily-created, cached client built
@@ -476,4 +477,176 @@ export async function deleteProductRow(productId: string): Promise<void> {
       ],
     },
   });
+}
+
+// ── Inventory tab ────────────────────────────────────────────────────────
+// A second, independent tab in the same spreadsheet backing the Inventory
+// page — a simple stock register (code, category, weight, photo, Shopify
+// id), unrelated to the Products tab's generation pipeline above. Same
+// append-only column rule as COLUMNS applies here.
+
+const INVENTORY_COLUMNS = [
+  "sku",
+  "category",
+  "weightGrams",
+  "photoUrl",
+  "shopifyProductId",
+  "createdDate",
+  "quantity",
+] as const satisfies readonly (keyof InventoryItem)[];
+
+const INVENTORY_LAST_COLUMN_LETTER = columnLetter(INVENTORY_COLUMNS.length - 1);
+
+function inventoryTabName(): string {
+  return optionalEnv("GOOGLE_SHEETS_INVENTORY_TAB_NAME", "Inventory");
+}
+
+let inventoryTabEnsured = false;
+
+/**
+ * Creates the Inventory tab (with its header row) the first time it's
+ * needed, so there's no manual setup step in the spreadsheet. Unlike
+ * ensureHeaderRow, the tab itself may not exist yet — values.get on a
+ * missing tab errors rather than returning empty.
+ */
+async function ensureInventoryTab(): Promise<void> {
+  if (inventoryTabEnsured) return;
+  const sheets = getSheetsClient();
+
+  const res = await sheets.spreadsheets.get({
+    spreadsheetId: spreadsheetId(),
+    fields: "sheets.properties.title",
+  });
+  const exists = res.data.sheets?.some((s) => s.properties?.title === inventoryTabName());
+  if (!exists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: spreadsheetId(),
+      requestBody: { requests: [{ addSheet: { properties: { title: inventoryTabName() } } }] },
+    });
+  }
+
+  const header = await sheets.spreadsheets.values.get({
+    spreadsheetId: spreadsheetId(),
+    range: `${inventoryTabName()}!A1:${INVENTORY_LAST_COLUMN_LETTER}1`,
+  });
+  // Rewrites the whole header whenever it differs — covers a brand-new tab,
+  // a column appended since, and a renamed column (column A started out as
+  // "productCode" before becoming "sku"). Safe because positions never move.
+  const existing = header.data.values?.[0] ?? [];
+  if (INVENTORY_COLUMNS.some((name, i) => existing[i] !== name)) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: spreadsheetId(),
+      range: `${inventoryTabName()}!A1:${INVENTORY_LAST_COLUMN_LETTER}1`,
+      valueInputOption: "RAW",
+      requestBody: { values: [[...INVENTORY_COLUMNS]] },
+    });
+  }
+  inventoryTabEnsured = true;
+}
+
+// Numbers stay numbers (so weight/quantity sum in the sheet); everything
+// else is written as text.
+function inventoryItemToRow(item: InventoryItem): (string | number)[] {
+  return INVENTORY_COLUMNS.map((key) => {
+    const value = item[key];
+    return typeof value === "number" ? value : String(value ?? "");
+  });
+}
+
+function rowToInventoryItem(row: string[]): InventoryItem {
+  const get = (i: number) => row[i] ?? "";
+  return {
+    sku: get(0),
+    category: get(1) as InventoryCategory,
+    weightGrams: Number(get(2)) || 0,
+    photoUrl: get(3),
+    shopifyProductId: get(4),
+    createdDate: get(5),
+    // Rows written before this column existed were one piece each.
+    quantity: get(6) === "" ? 1 : Number(get(6)) || 0,
+  };
+}
+
+/** Every Inventory row, in sheet order (oldest first). */
+export async function listInventoryItems(): Promise<InventoryItem[]> {
+  await ensureInventoryTab();
+  const sheets = getSheetsClient();
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: spreadsheetId(),
+    range: `${inventoryTabName()}!A2:${INVENTORY_LAST_COLUMN_LETTER}`,
+  });
+
+  return (res.data.values ?? [])
+    .filter((row) => row.some((value) => value !== "" && value != null))
+    .map((row) => rowToInventoryItem(row.map((value) => (value == null ? "" : String(value)))));
+}
+
+/**
+ * Appends one Inventory row. RAW rather than USER_ENTERED (which the
+ * Products tab uses) so a product code like "00123" or a numeric Shopify id
+ * is kept verbatim as text instead of being reinterpreted as a number;
+ * weight and quantity are passed as actual numbers so they still sum in
+ * the sheet.
+ */
+export async function appendInventoryRow(item: InventoryItem): Promise<void> {
+  await ensureInventoryTab();
+  const sheets = getSheetsClient();
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: spreadsheetId(),
+    range: `${inventoryTabName()}!A:${INVENTORY_LAST_COLUMN_LETTER}`,
+    valueInputOption: "RAW",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: { values: [inventoryItemToRow(item)] },
+  });
+}
+
+export interface InventoryUpdate {
+  category?: InventoryCategory;
+  weightGrams?: number;
+  shopifyProductId?: string;
+  /** Absolute quantity — the Edit dialog. */
+  quantity?: number;
+  /**
+   * Relative change — the table's +/- buttons. Applied to the row's value as
+   * read here rather than to whatever the browser last saw, so two quick
+   * clicks (or two people) don't overwrite each other's change.
+   */
+  quantityDelta?: number;
+}
+
+/**
+ * Rewrites one Inventory row, found by SKU (case-insensitive, matching the
+ * duplicate check in POST /api/inventory). Quantity is floored at 0. Throws
+ * if no row has that SKU.
+ */
+export async function updateInventoryRow(sku: string, update: InventoryUpdate): Promise<InventoryItem> {
+  await ensureInventoryTab();
+  const sheets = getSheetsClient();
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: spreadsheetId(),
+    range: `${inventoryTabName()}!A2:${INVENTORY_LAST_COLUMN_LETTER}`,
+  });
+  const rows = res.data.values ?? [];
+  const index = rows.findIndex((row) => String(row[0] ?? "").toLowerCase() === sku.toLowerCase());
+  if (index === -1) {
+    throw new Error(`No inventory row found for SKU ${sku}.`);
+  }
+
+  const current = rowToInventoryItem(rows[index].map((value) => (value == null ? "" : String(value))));
+  const { quantityDelta, ...fields } = update;
+  const merged: InventoryItem = { ...current, ...fields };
+  if (quantityDelta !== undefined) merged.quantity = current.quantity + quantityDelta;
+  merged.quantity = Math.max(0, merged.quantity);
+
+  const rowNumber = index + 2; // +1 for 0-index, +1 for header row
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: spreadsheetId(),
+    range: `${inventoryTabName()}!A${rowNumber}:${INVENTORY_LAST_COLUMN_LETTER}${rowNumber}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [inventoryItemToRow(merged)] },
+  });
+  return merged;
 }

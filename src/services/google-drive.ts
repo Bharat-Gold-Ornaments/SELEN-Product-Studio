@@ -228,6 +228,17 @@ export async function uploadGenerated(
   return uploadFile(generatedFolderId, fileName, buffer, mimeType);
 }
 
+/**
+ * Uploads an Inventory page photo into a flat `Inventory` folder at the
+ * Drive root. Callers pass a unique file name (product code + timestamp) —
+ * uploadFile overwrites by name, so a reused name would silently replace
+ * another item's photo.
+ */
+export async function uploadInventoryPhoto(fileName: string, buffer: Buffer, mimeType: string): Promise<UploadResult> {
+  const folderId = await createFolder("Inventory", rootFolderId());
+  return uploadFile(folderId, fileName, buffer, mimeType);
+}
+
 export interface DriveFile {
   name: string;
   publicUrl: string;

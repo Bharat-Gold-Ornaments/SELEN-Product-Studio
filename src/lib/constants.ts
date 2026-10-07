@@ -1,4 +1,5 @@
 import type { ProductStatus, ProductType } from "@/types/product";
+import type { InventoryCategory } from "@/types/inventory";
 
 export const PRODUCT_TYPES: { value: ProductType; label: string }[] = [
   { value: "earrings", label: "Earrings" },
@@ -6,6 +7,13 @@ export const PRODUCT_TYPES: { value: ProductType; label: string }[] = [
   { value: "pendant", label: "Pendant" },
   { value: "necklace", label: "Necklace" },
   { value: "bracelet", label: "Bracelet" },
+];
+
+export const INVENTORY_CATEGORIES: { value: InventoryCategory; label: string }[] = [
+  { value: "ring", label: "Rings" },
+  { value: "pendant", label: "Pendants" },
+  { value: "earrings", label: "Earrings" },
+  { value: "chain", label: "Chains" },
 ];
 
 export const PRODUCT_STATUSES: { value: ProductStatus; label: string }[] = [
@@ -36,6 +44,7 @@ export const NAV_ITEMS = [
   { href: "/products", label: "Products", icon: "Gem" },
   { href: "/products/create", label: "Create Product", icon: "Sparkles" },
   { href: "/uploads", label: "Upload Photos", icon: "Camera" },
+  { href: "/inventory", label: "Inventory", icon: "Boxes" },
   { href: "/templates", label: "Template Manager", icon: "FileText" },
   { href: "/discounts", label: "Discounts", icon: "Percent" },
   { href: "/settings", label: "Settings", icon: "Settings" },
