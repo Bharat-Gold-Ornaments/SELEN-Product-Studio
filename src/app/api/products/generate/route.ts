@@ -5,7 +5,8 @@ import { buildImagePromptVariables } from "@/lib/generation-variables";
 import { buildDraftProductRecord } from "@/lib/product-record";
 import { PRODUCT_TYPES } from "@/lib/constants";
 import { runInitialGeneration, type OriginalPhoto } from "@/services/product-generation";
-import { appendProductRow, updateProductRow } from "@/services/google-sheets";
+import { appendProductRow, listInventoryItems, listProducts, updateProductRow } from "@/services/google-sheets";
+import { sameSku } from "@/lib/sku";
 import { downloadFile, markPoolPhotoUsed } from "@/services/google-drive";
 import { IMAGE_CATEGORIES } from "@/lib/constants";
 import type { ProductType, ImageCategory } from "@/types/product";
@@ -69,7 +70,35 @@ export async function POST(request: Request) {
     );
   }
 
-  const values = parsed.data as ProductFormValues;
+  let values = parsed.data as ProductFormValues;
+
+  // A product can only be created for a piece that's already in Inventory,
+  // and each Inventory SKU backs at most one product. Unlike the Sheet
+  // write further down, this check is a hard gate, so a Sheets failure here
+  // fails the request.
+  try {
+    const [inventory, products] = await Promise.all([listInventoryItems(), listProducts()]);
+    const inventoryItem = inventory.find((item) => sameSku(item.sku, values.sku));
+    if (!inventoryItem) {
+      return NextResponse.json(
+        { error: `SKU "${values.sku}" isn't in Inventory. Add it on the Inventory page first.` },
+        { status: 400 }
+      );
+    }
+    const existing = products.find((product) => product.sku && sameSku(product.sku, values.sku));
+    if (existing) {
+      return NextResponse.json(
+        { error: `SKU "${inventoryItem.sku}" is already used by ${existing.title} (${existing.productId}).` },
+        { status: 409 }
+      );
+    }
+    // Store the SKU exactly as Inventory spells it.
+    values = { ...values, sku: inventoryItem.sku };
+  } catch (error) {
+    console.error("Couldn't check the SKU against Inventory", error);
+    const message = error instanceof Error ? error.message : "Unknown error.";
+    return NextResponse.json({ error: `Couldn't check the SKU against Inventory: ${message}` }, { status: 500 });
+  }
 
   // Every photo is optional — only the ones actually provided get uploaded.
   const candidatePhotos: { field: "front" | "side" | "worn"; file: File | null | undefined }[] = [

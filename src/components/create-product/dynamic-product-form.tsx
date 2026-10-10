@@ -24,6 +24,7 @@ import { FormField } from "@/components/form-field";
 import { PhotoUploadField, type PoolPhotoRef } from "./photo-upload-field";
 import { PoolPhotoPicker } from "./pool-photo-picker";
 import { TagInput } from "./tag-input";
+import { InventorySkuField } from "./inventory-sku-field";
 import type { PoolPhoto, PoolPhotoAngle } from "@/hooks/use-pool-photos";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -245,6 +246,28 @@ export function DynamicProductForm({ productType }: DynamicProductFormProps) {
           <CardTitle>Details</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 pt-0 sm:grid-cols-2">
+          <Controller
+            name={"sku" as FieldPath<ProductFormValues>}
+            control={control}
+            render={({ field }) => (
+              <InventorySkuField
+                productType={productType}
+                value={(field.value as string) ?? ""}
+                error={fieldErrors.sku?.message}
+                onSelect={(item) => {
+                  field.onChange(item.sku);
+                  // Prefill from the Inventory row; both stay editable.
+                  setValue("weightGrams" as FieldPath<ProductFormValues>, String(item.weightGrams) as never, {
+                    shouldValidate: true,
+                  });
+                  setValue("inventory" as FieldPath<ProductFormValues>, String(item.quantity) as never, {
+                    shouldValidate: true,
+                  });
+                }}
+              />
+            )}
+          />
+
           <FormField label="Weight (grams)" htmlFor="weightGrams" error={fieldErrors.weightGrams?.message}>
             <Input
               id="weightGrams"

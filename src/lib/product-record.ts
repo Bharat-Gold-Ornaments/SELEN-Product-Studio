@@ -58,6 +58,7 @@ export function buildDraftProductRecord(productId: string, values: ProductFormVa
     variantColorImages: "",
     inventorySyncStatus: "" as const,
     inventorySyncedAt: "",
+    sku: values.sku,
   };
 
   switch (values.productType) {

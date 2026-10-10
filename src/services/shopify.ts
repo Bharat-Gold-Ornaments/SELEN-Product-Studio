@@ -1848,6 +1848,80 @@ export async function listShopifyProductsForImport(first = 100): Promise<Shopify
   });
 }
 
+// ── Reconciliation ───────────────────────────────────────────────────────
+// Read-only, like the import read above, but complete: every product
+// (paged, not capped at `first`), every status, and each variant's SKU and
+// stock — services/reconciliation.ts needs all of it to cross-check the
+// Sheet's two tabs against Shopify.
+
+export interface ShopifyReconciliationVariant {
+  title: string;
+  /** "" when the variant has no SKU set in Shopify admin. */
+  sku: string;
+  inventoryQuantity: number;
+}
+
+export interface ShopifyReconciliationProduct {
+  shopifyProductId: string;
+  title: string;
+  status: ShopifyProductStatus;
+  variants: ShopifyReconciliationVariant[];
+}
+
+export async function listShopifyProductsForReconciliation(): Promise<ShopifyReconciliationProduct[]> {
+  const products: ShopifyReconciliationProduct[] = [];
+  let after: string | null = null;
+
+  do {
+    const data: {
+      products: {
+        pageInfo: { hasNextPage: boolean; endCursor: string | null };
+        nodes: {
+          id: string;
+          title: string;
+          status: ShopifyProductStatus;
+          variants: { nodes: { title: string; sku: string | null; inventoryQuantity: number | null }[] };
+        }[];
+      };
+    } = await shopifyGraphQL(
+      `query listProductsForReconciliation($after: String) {
+        products(first: 100, after: $after, sortKey: TITLE) {
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            id
+            title
+            status
+            variants(first: 100) { nodes { title sku inventoryQuantity } }
+          }
+        }
+      }`,
+      { after }
+    );
+
+    for (const node of data.products.nodes) {
+      products.push({
+        shopifyProductId: numericIdFromGid(node.id),
+        title: node.title,
+        status: node.status,
+        variants: node.variants.nodes.map((v) => ({
+          title: v.title,
+          sku: v.sku ?? "",
+          inventoryQuantity: v.inventoryQuantity ?? 0,
+        })),
+      });
+    }
+    after = data.products.pageInfo.hasNextPage ? data.products.pageInfo.endCursor : null;
+  } while (after);
+
+  return products;
+}
+
+/** Link to a product's page in Shopify admin. */
+export function shopifyAdminProductUrl(shopifyProductId: string): string {
+  const storeHandle = storeDomain().replace(/\.myshopify\.com$/, "");
+  return `https://admin.shopify.com/store/${storeHandle}/products/${shopifyProductId}`;
+}
+
 // ── Delete gating ────────────────────────────────────────────────────────
 
 export type ShopifyProductStatus = "ACTIVE" | "ARCHIVED" | "DRAFT";

@@ -75,6 +75,8 @@ const photoField = (label: string) =>
     .nullish();
 
 const baseShape = {
+  // Must be an existing Inventory tab SKU — checked server-side in /api/products/generate.
+  sku: z.string().trim().min(1, "Pick the Inventory SKU this product is for"),
   frontPhoto: photoField("Front Photo"),
   sidePhoto: photoField("Side Photo"),
   wornPhoto: photoField("Worn Photo"),
@@ -185,6 +187,7 @@ export const EXTRA_FIELDS: Record<ProductType, ExtraFieldConfig[]> = {
 export function defaultValuesFor(productType: ProductType) {
   const base = {
     productType,
+    sku: "",
     frontPhoto: undefined,
     sidePhoto: undefined,
     wornPhoto: undefined,

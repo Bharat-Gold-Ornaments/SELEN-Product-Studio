@@ -11,6 +11,7 @@ import {
   Camera,
   Percent,
   Boxes,
+  ListChecks,
   type LucideIcon,
 } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/constants";
@@ -25,6 +26,7 @@ const ICONS: Record<string, LucideIcon> = {
   Camera,
   Percent,
   Boxes,
+  ListChecks,
 };
 
 /**

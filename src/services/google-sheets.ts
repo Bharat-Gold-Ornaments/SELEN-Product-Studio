@@ -145,6 +145,8 @@ const COLUMNS = [
   // Appended for post-publish inventory sync (variant-less products) — same append-only rule.
   "inventorySyncStatus",
   "inventorySyncedAt",
+  // Appended for the Inventory link (Create Product requires an Inventory SKU) — same append-only rule.
+  "sku",
 ] as const satisfies readonly (keyof ProductRecord)[];
 
 // Converts a 0-based column index to its Sheets column letter(s) — A, B, ...
@@ -264,6 +266,7 @@ function rowToRecord(row: string[]): ProductRecord {
       return raw === "synced" || raw === "out_of_sync" ? raw : "";
     })(),
     inventorySyncedAt: get(41),
+    sku: get(42),
   };
 }
 

@@ -172,5 +172,7 @@ export function buildImportedProductRecord(
     variantColorImages: "",
     inventorySyncStatus: "",
     inventorySyncedAt: "",
+    // Imported products weren't created from an Inventory row.
+    sku: "",
   };
 }

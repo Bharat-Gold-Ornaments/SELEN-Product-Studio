@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { InventorySkuConflictError, updateInventoryRow, type InventoryUpdate } from "@/services/google-sheets";
+import {
+  InventorySkuConflictError,
+  listProducts,
+  updateInventoryRow,
+  updateProductRow,
+  type InventoryUpdate,
+} from "@/services/google-sheets";
+import { sameSku } from "@/lib/sku";
 import { deleteItem, driveFileIdFromImageProxyUrl, uploadInventoryPhoto } from "@/services/google-drive";
 import { INVENTORY_CATEGORIES } from "@/lib/constants";
 import type { InventoryCategory } from "@/types/inventory";
@@ -12,6 +19,25 @@ async function deletePhotoQuietly(photoUrl: string): Promise<void> {
     await deleteItem(driveFileIdFromImageProxyUrl(photoUrl));
   } catch (error) {
     console.error(`Couldn't delete inventory photo ${photoUrl}`, error);
+  }
+}
+
+/**
+ * Keeps the Products tab's link to this Inventory row (ProductRecord.sku)
+ * pointing at the renamed SKU. Best-effort like deletePhotoQuietly: the
+ * Inventory edit itself already succeeded, and Reconciliation flags any
+ * product left pointing at a SKU that no longer exists.
+ */
+async function renameProductSku(oldSku: string, newSku: string): Promise<void> {
+  try {
+    const products = await listProducts();
+    await Promise.all(
+      products
+        .filter((product) => product.sku && sameSku(product.sku, oldSku))
+        .map((product) => updateProductRow(product.productId, { sku: newSku }))
+    );
+  } catch (error) {
+    console.error(`Couldn't rename SKU ${oldSku} to ${newSku} on the Products tab`, error);
   }
 }
 
@@ -87,6 +113,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sk
     const { previous, item } = await updateInventoryRow(sku, update);
     if (previous.photoUrl && previous.photoUrl !== item.photoUrl) {
       await deletePhotoQuietly(previous.photoUrl);
+    }
+    if (previous.sku !== item.sku) {
+      await renameProductSku(previous.sku, item.sku);
     }
     return NextResponse.json({ item });
   } catch (error) {

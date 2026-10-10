@@ -141,4 +141,6 @@ export interface ProductRecord {
   // instead.
   inventorySyncStatus: "synced" | "out_of_sync" | "";
   inventorySyncedAt: string;
+  /** The Inventory tab SKU this product was created from — required for products created in Studio, "" for older rows and Shopify imports. */
+  sku: string;
 }
