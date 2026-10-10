@@ -1,4 +1,5 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { requireEnv, optionalEnv } from "@/lib/env";
 import { colorGalleryMetafieldKey } from "@/lib/variants";
 import type { ImageCategory } from "@/types/product";
@@ -1421,7 +1422,9 @@ export interface UpdateShopifyInventoryInput {
  * goes through syncShopifyProductVariants instead. `changeFromQuantity: null`
  * skips Shopify's compare-and-swap check (successor to the removed
  * `ignoreCompareQuantity` field) since we always want to overwrite with the
- * absolute count regardless of what's currently on Shopify. Throws on
+ * absolute count regardless of what's currently on Shopify. The
+ * `@idempotent` key (required since 2026-04) is fresh per call — each save
+ * is a distinct intended write, and nothing here retries. Throws on
  * failure — same catch-and-flag-out_of_sync contract as
  * updateShopifyProductPrice.
  */
@@ -1435,8 +1438,8 @@ export async function updateShopifyProductInventory(input: UpdateShopifyInventor
   const data = await shopifyGraphQL<{
     inventorySetQuantities: { userErrors: { field?: string[] | null; message: string }[] };
   }>(
-    `mutation setInventory($input: InventorySetQuantitiesInput!) {
-      inventorySetQuantities(input: $input) {
+    `mutation setInventory($input: InventorySetQuantitiesInput!, $idempotencyKey: String!) {
+      inventorySetQuantities(input: $input) @idempotent(key: $idempotencyKey) {
         userErrors { field message }
       }
     }`,
@@ -1448,6 +1451,7 @@ export async function updateShopifyProductInventory(input: UpdateShopifyInventor
           { inventoryItemId, locationId, quantity: input.inventory, changeFromQuantity: null },
         ],
       },
+      idempotencyKey: randomUUID(),
     }
   );
   assertNoUserErrors(data.inventorySetQuantities.userErrors, "inventorySetQuantities");

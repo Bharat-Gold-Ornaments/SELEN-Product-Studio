@@ -16,9 +16,13 @@ interface VariantMatch {
   variant: ShopifyReconciliationVariant;
 }
 
-/** Products tab stock in the same shape as Shopify's: summed across variants when the product has them. */
+/**
+ * Products tab stock in the same shape as Shopify's: summed across variants when the product has them.
+ * Checks the parsed rows, not the raw cell — a product whose variants were removed keeps "[]" there.
+ */
 function productsTabStock(record: ProductRecord): number {
-  return record.variants ? totalVariantInventory(parseVariantRows(record.variants)) : record.inventory;
+  const rows = parseVariantRows(record.variants);
+  return rows.length > 0 ? totalVariantInventory(rows) : record.inventory;
 }
 
 function shopifyStock(product: ShopifyReconciliationProduct): number {
