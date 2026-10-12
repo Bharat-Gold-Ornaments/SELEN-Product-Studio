@@ -67,6 +67,8 @@ export interface InventoryStats {
   lowStock: InventoryItem[];
   /** In Inventory, but no Studio product uses the SKU and the row has no Shopify product ID. */
   notListed: InventoryItem[];
+  /** No photo, so staff can't find it by picture when selling or restocking. */
+  noPhoto: InventoryItem[];
 }
 
 /** "RRA001" → { prefix: "RRA", number: 1, digits: 3 }; null if the SKU isn't letters followed by digits. */
@@ -148,5 +150,6 @@ export function computeInventoryStats(items: InventoryItem[], listedSkus: string
     outOfStock: items.filter((item) => stockLevel(item.quantity) === "out").sort(bySku),
     lowStock: items.filter((item) => stockLevel(item.quantity) === "low").sort(bySku),
     notListed,
+    noPhoto: items.filter((item) => !item.photoUrl).sort(bySku),
   };
 }

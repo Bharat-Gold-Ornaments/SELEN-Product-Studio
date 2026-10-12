@@ -184,6 +184,13 @@ export async function runReconciliation(): Promise<ReconciliationReport> {
 
   // ── Inventory rows vs. Shopify ────────────────────────────────────────
   for (const item of inventory) {
+    if (item.quantity < 0) {
+      raise("inventory_negative_stock", item.sku, {
+        sku: item.sku,
+        message: `Inventory says ${item.quantity}. More sales were recorded than pieces in stock.`,
+      });
+    }
+
     const sku = normalizeSku(item.sku);
     const matches = activeSkuIndex.get(sku) ?? [];
     const linkedId = item.shopifyProductId.trim();

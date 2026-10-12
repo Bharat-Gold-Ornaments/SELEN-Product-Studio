@@ -6,6 +6,7 @@ export type ReconciliationRule =
   | "sku_not_on_shopify_product"
   | "inventory_sku_on_other_product"
   | "product_sku_not_in_inventory"
+  | "inventory_negative_stock"
   | "inventory_qty_mismatch"
   | "products_stock_mismatch"
   | "shopify_missing_from_products"
@@ -49,6 +50,11 @@ export const RECONCILIATION_RULES: Record<ReconciliationRule, ReconciliationRule
     severity: "error",
     title: "Product's SKU missing from Inventory",
     description: "A Products tab row was created from an Inventory SKU that no longer exists in Inventory.",
+  },
+  inventory_negative_stock: {
+    severity: "error",
+    title: "Stock below zero",
+    description: "An Inventory quantity went below 0 — a sale was recorded for a piece Inventory didn't have. Count the pieces and correct the quantity.",
   },
   inventory_qty_mismatch: {
     severity: "error",

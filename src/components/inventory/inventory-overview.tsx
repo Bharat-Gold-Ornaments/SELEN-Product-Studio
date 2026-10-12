@@ -255,7 +255,7 @@ export function InventoryOverview({ items, listedSkus, onSelect }: InventoryOver
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-4">
         <AttentionList
           title="Out of stock"
           icon={CircleSlash}
@@ -278,6 +278,14 @@ export function InventoryOverview({ items, listedSkus, onSelect }: InventoryOver
           description="No Studio product uses this SKU and the row has no Shopify product ID."
           items={stats.notListed}
           emptyLabel="Every SKU is listed."
+          onSelect={onSelect}
+        />
+        <AttentionList
+          title="No photo"
+          icon={ImageOff}
+          description="Staff find pieces by photo when selling or restocking. Click one to add a photo."
+          items={stats.noPhoto}
+          emptyLabel="Every SKU has a photo."
           onSelect={onSelect}
         />
       </div>

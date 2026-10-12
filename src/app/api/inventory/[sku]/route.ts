@@ -8,6 +8,7 @@ import {
 } from "@/services/google-sheets";
 import { sameSku } from "@/lib/sku";
 import { deleteItem, driveFileIdFromImageProxyUrl, uploadInventoryPhoto } from "@/services/google-drive";
+import { logInventoryPageChange } from "@/services/stock";
 import { INVENTORY_CATEGORIES } from "@/lib/constants";
 import type { InventoryCategory } from "@/types/inventory";
 
@@ -116,6 +117,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sk
     }
     if (previous.sku !== item.sku) {
       await renameProductSku(previous.sku, item.sku);
+    }
+    if (previous.quantity !== item.quantity) {
+      await logInventoryPageChange("correction", item.sku, item.quantity - previous.quantity, item.quantity);
     }
     return NextResponse.json({ item });
   } catch (error) {

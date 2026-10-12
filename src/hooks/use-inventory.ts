@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { InventoryCategory, InventoryItem } from "@/types/inventory";
+import type { StockLogEntry } from "@/types/stock-log";
 
 async function fetchInventory(): Promise<InventoryItem[]> {
   const res = await fetch("/api/inventory");
@@ -53,6 +54,7 @@ export function useAddInventoryItem() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["stock-log"] });
     },
   });
 }
@@ -116,6 +118,99 @@ export function useUpdateInventoryItem() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["stock-log"] });
     },
+  });
+}
+
+async function readError(res: Response, fallback: string): Promise<Error> {
+  const data = await res.json().catch(() => null);
+  return new Error(data?.error ?? fallback);
+}
+
+/** Restock and merge change stock, Shopify-linked Products tab rows and the Stock Log. */
+function useInvalidateStock() {
+  const queryClient = useQueryClient();
+  return () => {
+    queryClient.invalidateQueries({ queryKey: ["inventory"] });
+    queryClient.invalidateQueries({ queryKey: ["stock-log"] });
+    queryClient.invalidateQueries({ queryKey: ["products-list"] });
+    queryClient.invalidateQueries({ queryKey: ["product"] });
+  };
+}
+
+export interface RestockInput {
+  sku: string;
+  quantity: number;
+  recordedBy: string;
+  /** YYYY-MM-DD the stock arrived. */
+  date: string;
+}
+
+/** More pieces of an existing design — added on Inventory and Shopify (services/stock.ts). */
+export function useRestockItem() {
+  const invalidate = useInvalidateStock();
+  return useMutation({
+    mutationFn: async (input: RestockInput): Promise<StockLogEntry> => {
+      const res = await fetch("/api/inventory/restock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) throw await readError(res, "Couldn't add this stock.");
+      const { entry } = (await res.json()) as { entry: StockLogEntry };
+      return entry;
+    },
+    onSettled: invalidate,
+  });
+}
+
+export function useMergeInventoryItems() {
+  const invalidate = useInvalidateStock();
+  return useMutation({
+    mutationFn: async (input: {
+      keepSku: string;
+      removeSku: string;
+      recordedBy: string;
+    }): Promise<{ item: InventoryItem; warnings: string[] }> => {
+      const res = await fetch("/api/inventory/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) throw await readError(res, "Couldn't merge these items.");
+      return (await res.json()) as { item: InventoryItem; warnings: string[] };
+    },
+    onSettled: invalidate,
+  });
+}
+
+/** Pair keys marked "Not a duplicate" (lib/inventory-duplicates.ts). */
+export function useDismissedDuplicates() {
+  return useQuery({
+    queryKey: ["inventory-duplicate-dismissals"],
+    queryFn: async (): Promise<string[]> => {
+      const res = await fetch("/api/inventory/duplicates");
+      if (!res.ok) throw await readError(res, "Couldn't load the duplicate check.");
+      const { dismissed } = (await res.json()) as { dismissed: string[] };
+      return dismissed;
+    },
+  });
+}
+
+export function useDismissDuplicate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ skuA, skuB }: { skuA: string; skuB: string }): Promise<string[]> => {
+      const res = await fetch("/api/inventory/duplicates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skuA, skuB }),
+      });
+      if (!res.ok) throw await readError(res, "Couldn't save that.");
+      const { dismissed } = (await res.json()) as { dismissed: string[] };
+      return dismissed;
+    },
+    onSuccess: (dismissed) => queryClient.setQueryData(["inventory-duplicate-dismissals"], dismissed),
   });
 }

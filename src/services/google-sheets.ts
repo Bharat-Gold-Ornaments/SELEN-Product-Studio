@@ -3,6 +3,7 @@ import { google, type sheets_v4 } from "googleapis";
 import { requireEnv, optionalEnv } from "@/lib/env";
 import type { ProductRecord, ProductType, ProductStatus } from "@/types/product";
 import type { InventoryCategory, InventoryItem } from "@/types/inventory";
+import type { StockLogEntry } from "@/types/stock-log";
 
 // ── Client setup ─────────────────────────────────────────────────────────
 // Mirrors services/google-drive.ts: a lazily-created, cached client built
@@ -664,4 +665,237 @@ export async function updateInventoryRow(
     requestBody: { values: [inventoryItemToRow(merged)] },
   });
   return { previous: current, item: merged };
+}
+
+/** Removes one Inventory row, found by SKU (case-insensitive). Throws if no row has that SKU. */
+export async function deleteInventoryRow(sku: string): Promise<void> {
+  await ensureInventoryTab();
+  const sheets = getSheetsClient();
+
+  const [values, meta] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: spreadsheetId(), range: `${inventoryTabName()}!A2:A` }),
+    sheets.spreadsheets.get({ spreadsheetId: spreadsheetId(), fields: "sheets.properties(sheetId,title)" }),
+  ]);
+  const index = (values.data.values ?? []).findIndex(
+    (row) => String(row[0] ?? "").toLowerCase() === sku.trim().toLowerCase()
+  );
+  if (index === -1) throw new Error(`No inventory row found for SKU ${sku}.`);
+  const sheetId = meta.data.sheets?.find((s) => s.properties?.title === inventoryTabName())?.properties?.sheetId;
+  if (sheetId === undefined || sheetId === null) throw new Error("Couldn't find the Inventory tab.");
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: spreadsheetId(),
+    requestBody: {
+      requests: [
+        // +1 for the header row; deleteDimension indexes are 0-based.
+        { deleteDimension: { range: { sheetId, dimension: "ROWS", startIndex: index + 1, endIndex: index + 2 } } },
+      ],
+    },
+  });
+}
+
+export interface InventoryQuantityChange {
+  sku: string;
+  /** Signed: −2 to take two pieces out of stock, +5 to add five. */
+  delta: number;
+}
+
+export interface AppliedQuantityChange {
+  /** The SKU as spelled on the Inventory tab. */
+  sku: string;
+  before: number;
+  after: number;
+}
+
+/**
+ * Adds `delta` to each SKU's quantity in one read and one write, and writes
+ * only the quantity cells — so the window in which another save could be
+ * overwritten is as short as Sheets allows (it has no row locking). The
+ * result may go below 0: a recorded sale is never refused, the Sales page
+ * warns instead. Throws, without writing anything, if a SKU isn't on the tab.
+ */
+export async function adjustInventoryQuantities(changes: InventoryQuantityChange[]): Promise<AppliedQuantityChange[]> {
+  await ensureInventoryTab();
+  const sheets = getSheetsClient();
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: spreadsheetId(),
+    range: `${inventoryTabName()}!A2:${INVENTORY_LAST_COLUMN_LETTER}`,
+  });
+  const rows = (res.data.values ?? []).map((row) => row.map((value) => (value == null ? "" : String(value))));
+
+  const quantityColumn = columnLetter(INVENTORY_COLUMNS.indexOf("quantity"));
+  const applied: AppliedQuantityChange[] = [];
+  const data: sheets_v4.Schema$ValueRange[] = [];
+  const pending = new Map<number, number>(); // row index → quantity after the changes so far
+
+  for (const change of changes) {
+    const index = rows.findIndex((row) => row[0].toLowerCase() === change.sku.trim().toLowerCase());
+    if (index === -1) throw new Error(`No inventory row found for SKU ${change.sku}.`);
+    const before = pending.get(index) ?? rowToInventoryItem(rows[index]).quantity;
+    const after = before + change.delta;
+    pending.set(index, after);
+    applied.push({ sku: rows[index][0], before, after });
+  }
+  for (const [index, quantity] of pending) {
+    const rowNumber = index + 2; // +1 for 0-index, +1 for header row
+    data.push({ range: `${inventoryTabName()}!${quantityColumn}${rowNumber}`, values: [[quantity]] });
+  }
+
+  if (data.length > 0) {
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: spreadsheetId(),
+      requestBody: { valueInputOption: "RAW", data },
+    });
+  }
+  return applied;
+}
+
+// ── Stock Log tab ────────────────────────────────────────────────────────
+// Append-only history of every stock change (sales, corrections, …), one
+// row per SKU per change. Rows are never deleted: an undo is a new row that
+// reverses an earlier one. Same append-only column rule as COLUMNS.
+
+const STOCK_LOG_COLUMNS = [
+  "id",
+  "date",
+  "recordedAt",
+  "type",
+  "sku",
+  "change",
+  "stockAfter",
+  "recordedBy",
+  "note",
+  "shopifyStatus",
+  "shopifyOrderRef",
+  "reversesId",
+  "relatedSku",
+  "shopifyProductRef",
+  "shopifyVariantRef",
+] as const satisfies readonly (keyof StockLogEntry)[];
+
+const STOCK_LOG_LAST_COLUMN_LETTER = columnLetter(STOCK_LOG_COLUMNS.length - 1);
+
+function stockLogTabName(): string {
+  return optionalEnv("GOOGLE_SHEETS_STOCK_LOG_TAB_NAME", "Stock Log");
+}
+
+let stockLogTabEnsured = false;
+
+/** Creates the Stock Log tab and its header row on first use — same as ensureInventoryTab. */
+async function ensureStockLogTab(): Promise<void> {
+  if (stockLogTabEnsured) return;
+  const sheets = getSheetsClient();
+
+  const res = await sheets.spreadsheets.get({
+    spreadsheetId: spreadsheetId(),
+    fields: "sheets.properties.title",
+  });
+  const exists = res.data.sheets?.some((s) => s.properties?.title === stockLogTabName());
+  if (!exists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: spreadsheetId(),
+      requestBody: { requests: [{ addSheet: { properties: { title: stockLogTabName() } } }] },
+    });
+  }
+
+  const header = await sheets.spreadsheets.values.get({
+    spreadsheetId: spreadsheetId(),
+    range: `'${stockLogTabName()}'!A1:${STOCK_LOG_LAST_COLUMN_LETTER}1`,
+  });
+  const existing = header.data.values?.[0] ?? [];
+  if (STOCK_LOG_COLUMNS.some((name, i) => existing[i] !== name)) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: spreadsheetId(),
+      range: `'${stockLogTabName()}'!A1:${STOCK_LOG_LAST_COLUMN_LETTER}1`,
+      valueInputOption: "RAW",
+      requestBody: { values: [[...STOCK_LOG_COLUMNS]] },
+    });
+  }
+  stockLogTabEnsured = true;
+}
+
+function stockLogEntryToRow(entry: StockLogEntry): (string | number)[] {
+  return STOCK_LOG_COLUMNS.map((key) => {
+    const value = entry[key];
+    return typeof value === "number" ? value : String(value ?? "");
+  });
+}
+
+function rowToStockLogEntry(row: string[]): StockLogEntry {
+  const get = (i: number) => row[i] ?? "";
+  return {
+    id: get(0),
+    date: get(1),
+    recordedAt: get(2),
+    type: get(3) as StockLogEntry["type"],
+    sku: get(4),
+    change: Number(get(5)) || 0,
+    stockAfter: Number(get(6)) || 0,
+    recordedBy: get(7),
+    note: get(8),
+    shopifyStatus: get(9) as StockLogEntry["shopifyStatus"],
+    shopifyOrderRef: get(10),
+    reversesId: get(11),
+    relatedSku: get(12),
+    shopifyProductRef: get(13),
+    shopifyVariantRef: get(14),
+  };
+}
+
+async function readStockLogRows(): Promise<string[][]> {
+  await ensureStockLogTab();
+  const res = await getSheetsClient().spreadsheets.values.get({
+    spreadsheetId: spreadsheetId(),
+    range: `'${stockLogTabName()}'!A2:${STOCK_LOG_LAST_COLUMN_LETTER}`,
+  });
+  return (res.data.values ?? []).map((row) => row.map((value) => (value == null ? "" : String(value))));
+}
+
+/** Every Stock Log row, oldest first. */
+export async function listStockLogEntries(): Promise<StockLogEntry[]> {
+  return (await readStockLogRows()).filter((row) => row[0]).map(rowToStockLogEntry);
+}
+
+/**
+ * RAW for the same reason as appendInventoryRow — a SKU like "00123" stays
+ * text; change and stockAfter are real numbers so they sum in the sheet.
+ */
+export async function appendStockLogEntries(entries: StockLogEntry[]): Promise<void> {
+  if (entries.length === 0) return;
+  await ensureStockLogTab();
+  await getSheetsClient().spreadsheets.values.append({
+    spreadsheetId: spreadsheetId(),
+    range: `'${stockLogTabName()}'!A:${STOCK_LOG_LAST_COLUMN_LETTER}`,
+    valueInputOption: "RAW",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: { values: entries.map(stockLogEntryToRow) },
+  });
+}
+
+export interface StockLogUpdate {
+  id: string;
+  patch: Partial<Omit<StockLogEntry, "id">>;
+}
+
+/** Rewrites existing rows, found by id, with `patch` merged in. Unknown ids are skipped. */
+export async function updateStockLogEntries(updates: StockLogUpdate[]): Promise<void> {
+  if (updates.length === 0) return;
+  const rows = await readStockLogRows();
+
+  const data: sheets_v4.Schema$ValueRange[] = [];
+  for (const { id, patch } of updates) {
+    const index = rows.findIndex((row) => row[0] === id);
+    if (index === -1) continue;
+    const rowNumber = index + 2;
+    data.push({
+      range: `'${stockLogTabName()}'!A${rowNumber}:${STOCK_LOG_LAST_COLUMN_LETTER}${rowNumber}`,
+      values: [stockLogEntryToRow({ ...rowToStockLogEntry(rows[index]), ...patch })],
+    });
+  }
+  if (data.length === 0) return;
+  await getSheetsClient().spreadsheets.values.batchUpdate({
+    spreadsheetId: spreadsheetId(),
+    requestBody: { valueInputOption: "RAW", data },
+  });
 }

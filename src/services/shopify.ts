@@ -1457,6 +1457,270 @@ export async function updateShopifyProductInventory(input: UpdateShopifyInventor
   assertNoUserErrors(data.inventorySetQuantities.userErrors, "inventorySetQuantities");
 }
 
+// ── Stock changes (Sales page) ──────────────────────────────────────────
+// Sales and undos change Shopify's stock by a delta, never by setting an
+// absolute count: an online order that lands between our read and our
+// write would otherwise be overwritten (services/stock.ts).
+
+export interface ShopifyStockVariant {
+  /** Numeric product id. */
+  shopifyProductId: string;
+  inventoryItemId: string;
+  /** "" when the variant has no SKU. */
+  sku: string;
+  quantity: number;
+  /** "" when the product has no Color option. */
+  color: string;
+  /** "" when the product has no Size option. */
+  size: string;
+}
+
+interface StockVariantNode {
+  sku: string | null;
+  inventoryQuantity: number | null;
+  selectedOptions: { name: string; value: string }[];
+  inventoryItem: { id: string };
+}
+
+function toStockVariant(productGid: string, node: StockVariantNode): ShopifyStockVariant {
+  return {
+    shopifyProductId: numericIdFromGid(productGid),
+    inventoryItemId: node.inventoryItem.id,
+    sku: node.sku ?? "",
+    quantity: node.inventoryQuantity ?? 0,
+    color: node.selectedOptions.find((o) => o.name === "Color")?.value ?? "",
+    size: node.selectedOptions.find((o) => o.name === "Size")?.value ?? "",
+  };
+}
+
+/**
+ * Variants whose SKU matches, in any product and any status. Shopify's sku
+ * search is a prefix/fuzzy match, so callers still compare the SKU exactly.
+ */
+export async function findShopifyVariantsBySku(sku: string): Promise<ShopifyStockVariant[]> {
+  const data = await shopifyGraphQL<{
+    productVariants: { nodes: (StockVariantNode & { product: { id: string } })[] };
+  }>(
+    `query findVariantsBySku($query: String!) {
+      productVariants(first: 10, query: $query) {
+        nodes {
+          sku
+          inventoryQuantity
+          selectedOptions { name value }
+          inventoryItem { id }
+          product { id }
+        }
+      }
+    }`,
+    { query: `sku:'${escapeSearchQueryValue(sku.trim())}'` }
+  );
+  return data.productVariants.nodes.map((node) => toStockVariant(node.product.id, node));
+}
+
+/** Every variant of a product with its stock, or null if Shopify has no such product. */
+export async function getShopifyProductStockVariants(shopifyProductId: string): Promise<ShopifyStockVariant[] | null> {
+  const data = await shopifyGraphQL<{
+    product: { id: string; variants: { nodes: StockVariantNode[] } } | null;
+  }>(
+    `query productVariantsForStock($id: ID!) {
+      product(id: $id) {
+        id
+        variants(first: 100) {
+          nodes {
+            sku
+            inventoryQuantity
+            selectedOptions { name value }
+            inventoryItem { id }
+          }
+        }
+      }
+    }`,
+    { id: productGidFromNumericId(shopifyProductId) }
+  );
+  if (!data.product) return null;
+  const productGid = data.product.id;
+  return data.product.variants.nodes.map((node) => toStockVariant(productGid, node));
+}
+
+export interface AdjustShopifyStockInput {
+  inventoryItemId: string;
+  /** Signed: −1 for one piece sold. */
+  delta: number;
+  /**
+   * The Stock Log entry id. Doubles as the idempotency key, so retrying an
+   * entry whose earlier push actually went through doesn't apply it twice.
+   */
+  stockLogId: string;
+}
+
+/**
+ * Changes the "available" stock at the store's primary location by `delta`.
+ * Throws on failure — the caller leaves the Stock Log entry pending.
+ */
+export async function adjustShopifyStock(input: AdjustShopifyStockInput): Promise<void> {
+  const locationId = await getPrimaryLocationId();
+
+  const run = (idempotencyKey: string) =>
+    shopifyGraphQL<{
+      inventoryAdjustQuantities: { userErrors: { field?: string[] | null; message: string; code?: string | null }[] };
+    }>(
+      `mutation adjustInventory($input: InventoryAdjustQuantitiesInput!, $idempotencyKey: String!) {
+        inventoryAdjustQuantities(input: $input) @idempotent(key: $idempotencyKey) {
+          userErrors { field message code }
+        }
+      }`,
+      {
+        input: {
+          name: "available",
+          reason: "correction",
+          referenceDocumentUri: `selen-studio://stock-log/${input.stockLogId}`,
+          changes: [
+            { inventoryItemId: input.inventoryItemId, locationId, delta: input.delta, changeFromQuantity: null },
+          ],
+        },
+        idempotencyKey,
+      }
+    );
+
+  let data = await run(input.stockLogId);
+  // Shopify refuses to reuse a key whose earlier attempt failed; that attempt
+  // changed nothing, so a fresh key is safe.
+  if (data.inventoryAdjustQuantities.userErrors.some((e) => e.code === "IDEMPOTENCY_PREVIOUS_ATTEMPT_FAILED")) {
+    data = await run(randomUUID());
+  }
+  assertNoUserErrors(data.inventoryAdjustQuantities.userErrors, "inventoryAdjustQuantities");
+}
+
+// ── Online orders (stock import) ────────────────────────────────────────
+// services/online-orders.ts reads orders to take online sales off the
+// Inventory tab. Needs the read_orders scope; without read_all_orders
+// Shopify only returns the last 60 days, which is all the import looks at.
+
+export interface ShopifyOrderLine {
+  /** Line item gid — unique, so it's the Stock Log's dedupe key. */
+  id: string;
+  /** "Product title - Variant title" as shown on the order. */
+  name: string;
+  quantity: number;
+  /** SKU as it was when ordered. */
+  sku: string;
+  /** The variant's SKU now — differs from `sku` when one was added after the order. */
+  currentSku: string;
+  /** Null when the product or variant has since been deleted. */
+  variantId: string | null;
+  shopifyProductId: string | null;
+  productTitle: string;
+  productVariantCount: number;
+  /** Pieces Shopify put back in stock through refunds or cancellation. */
+  restockedQuantity: number;
+}
+
+export interface ShopifyOrderForStock {
+  id: string;
+  /** "#1001" */
+  name: string;
+  createdAt: string;
+  lines: ShopifyOrderLine[];
+}
+
+/** Every order created at or after `sinceIso`, oldest first, plus the shop's time zone for dating them. */
+export async function listShopifyOrdersForStock(
+  sinceIso: string
+): Promise<{ timeZone: string; orders: ShopifyOrderForStock[] }> {
+  type LineNode = {
+    id: string;
+    name: string;
+    quantity: number;
+    sku: string | null;
+    variant: {
+      id: string;
+      sku: string | null;
+      product: { id: string; title: string; variantsCount: { count: number } | null };
+    } | null;
+  };
+  type OrderNode = {
+    id: string;
+    name: string;
+    createdAt: string;
+    lineItems: { nodes: LineNode[] };
+    refunds: {
+      refundLineItems: { nodes: { quantity: number; restockType: string; lineItem: { id: string } }[] };
+    }[];
+  };
+
+  const orders: ShopifyOrderForStock[] = [];
+  let timeZone = "UTC";
+  let after: string | null = null;
+  do {
+    const data: {
+      shop: { ianaTimezone: string };
+      orders: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: OrderNode[] };
+    } = await shopifyGraphQL(
+      `query listOrdersForStock($query: String!, $after: String) {
+        shop { ianaTimezone }
+        orders(first: 50, after: $after, query: $query, sortKey: CREATED_AT) {
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            id
+            name
+            createdAt
+            lineItems(first: 100) {
+              nodes {
+                id
+                name
+                quantity
+                sku
+                variant {
+                  id
+                  sku
+                  product { id title variantsCount { count } }
+                }
+              }
+            }
+            refunds(first: 50) {
+              refundLineItems(first: 100) {
+                nodes { quantity restockType lineItem { id } }
+              }
+            }
+          }
+        }
+      }`,
+      { query: `created_at:>='${sinceIso}'`, after }
+    );
+    timeZone = data.shop.ianaTimezone || timeZone;
+
+    for (const order of data.orders.nodes) {
+      const restocked = new Map<string, number>();
+      for (const refund of order.refunds) {
+        for (const line of refund.refundLineItems.nodes) {
+          if (line.restockType === "NO_RESTOCK") continue;
+          restocked.set(line.lineItem.id, (restocked.get(line.lineItem.id) ?? 0) + line.quantity);
+        }
+      }
+      orders.push({
+        id: order.id,
+        name: order.name,
+        createdAt: order.createdAt,
+        lines: order.lineItems.nodes.map((line) => ({
+          id: line.id,
+          name: line.name,
+          quantity: line.quantity,
+          sku: line.sku ?? "",
+          currentSku: line.variant?.sku ?? "",
+          variantId: line.variant?.id ?? null,
+          shopifyProductId: line.variant ? numericIdFromGid(line.variant.product.id) : null,
+          productTitle: line.variant?.product.title ?? line.name,
+          productVariantCount: line.variant?.product.variantsCount?.count ?? 0,
+          restockedQuantity: restocked.get(line.id) ?? 0,
+        })),
+      });
+    }
+    after = data.orders.pageInfo.hasNextPage ? data.orders.pageInfo.endCursor : null;
+  } while (after);
+
+  return { timeZone, orders };
+}
+
 // ── Post-publish listing sync ───────────────────────────────────────────
 // Finalize's "Update Shopify Listing" action (api/products/[productId]/sync/
 // route.ts) — re-pushes title/description/tags/SEO/photos to a product

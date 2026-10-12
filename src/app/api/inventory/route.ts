@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { appendInventoryRow, listInventoryItems } from "@/services/google-sheets";
 import { uploadInventoryPhoto } from "@/services/google-drive";
+import { logInventoryPageChange } from "@/services/stock";
 import { INVENTORY_CATEGORIES } from "@/lib/constants";
 import type { InventoryCategory, InventoryItem } from "@/types/inventory";
 
@@ -44,6 +45,10 @@ export async function POST(request: Request) {
   if (!Number.isInteger(quantity) || quantity < 1) {
     return NextResponse.json({ error: "Quantity must be a whole number of 1 or more." }, { status: 400 });
   }
+  // Staff find pieces by photo when restocking or recording a sale, so a new design needs one.
+  if (!(photo instanceof File && photo.size > 0)) {
+    return NextResponse.json({ error: "Add a photo of the piece." }, { status: 400 });
+  }
 
   try {
     const existing = await listInventoryItems();
@@ -66,6 +71,7 @@ export async function POST(request: Request) {
       createdDate: new Date().toISOString(),
     };
     await appendInventoryRow(item);
+    await logInventoryPageChange("new", item.sku, item.quantity, item.quantity);
     return NextResponse.json({ item });
   } catch (error) {
     console.error("Failed to add inventory item", error);

@@ -1,30 +1,26 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
-import { toast } from "sonner";
-import { ImageOff, Loader2, Pencil, Plus, RefreshCw, TriangleAlert } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowDownWideNarrow, ImageOff, Loader2, Pencil, RefreshCw, Search, TriangleAlert } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { InventoryPhotoPicker } from "@/components/inventory/inventory-photo-picker";
+import { AddStockCard } from "@/components/inventory/add-stock-card";
+import { DuplicatesPanel } from "@/components/inventory/duplicates-panel";
 import { EditInventoryDialog } from "@/components/inventory/edit-inventory-dialog";
 import { InventoryOverview } from "@/components/inventory/inventory-overview";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useProductsList } from "@/hooks/use-products-list";
+import { useStockLog } from "@/hooks/use-stock-log";
+import { formatDay, salesTotalsBySku } from "@/lib/sales-stats";
+import { normalizeSku } from "@/lib/sku";
 import { INVENTORY_CATEGORIES } from "@/lib/constants";
 import { cn, formatDate, formatGrams } from "@/lib/utils";
-import { useAddInventoryItem, useInventory } from "@/hooks/use-inventory";
+import { useInventory } from "@/hooks/use-inventory";
+import { parseWeightQuery, searchItems } from "@/lib/item-search";
 import type { InventoryCategory, InventoryItem } from "@/types/inventory";
 
 const CATEGORY_LABEL = Object.fromEntries(INVENTORY_CATEGORIES.map((c) => [c.value, c.label])) as Record<
@@ -33,64 +29,29 @@ const CATEGORY_LABEL = Object.fromEntries(INVENTORY_CATEGORIES.map((c) => [c.val
 >;
 
 export function InventoryClient() {
-  const [sku, setSku] = useState("");
-  const [category, setCategory] = useState<InventoryCategory | "">("");
-  const [weightGrams, setWeightGrams] = useState("");
-  const [quantity, setQuantity] = useState("1");
-  const [shopifyProductId, setShopifyProductId] = useState("");
-  const [photo, setPhoto] = useState<File | null>(null);
-
   const { data: items, isLoading, isError, error, refetch, isFetching } = useInventory();
   // Only for the Overview tab's "Not listed yet" (which SKUs a Studio product was created from).
   const products = useProductsList();
-  const addItem = useAddInventoryItem();
+  // Sold / Last sold columns. If the Stock Log fails to load they just show "—".
+  const stockLog = useStockLog();
+  const [sortBy, setSortBy] = useState<"sku" | "sold">("sku");
+  const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<InventoryItem | null>(null);
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    if (!sku.trim()) {
-      toast.error("Enter a SKU.");
-      return;
-    }
-    if (!category) {
-      toast.error("Pick a category.");
-      return;
-    }
-    if (!(Number(weightGrams) > 0)) {
-      toast.error("Enter a weight greater than 0.");
-      return;
-    }
-    if (!Number.isInteger(Number(quantity)) || Number(quantity) < 1) {
-      toast.error("Enter a quantity of 1 or more.");
-      return;
-    }
+  const salesBySku = useMemo(() => salesTotalsBySku(stockLog.data ?? []), [stockLog.data]);
+  const soldOf = (item: InventoryItem) => salesBySku.get(normalizeSku(item.sku))?.sold ?? 0;
+  const lastSoldOf = (item: InventoryItem) => salesBySku.get(normalizeSku(item.sku))?.lastSold ?? "";
 
-    try {
-      await addItem.mutateAsync({
-        sku: sku.trim(),
-        category,
-        weightGrams,
-        quantity,
-        shopifyProductId: shopifyProductId.trim(),
-        photo,
-      });
-      toast.success(`${sku.trim()} added to inventory`);
-      // Category is kept so a run of same-category pieces doesn't need it re-picked each time.
-      setSku("");
-      setWeightGrams("");
-      setQuantity("1");
-      setShopifyProductId("");
-      setPhoto(null);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't save this item.");
-    }
-  }
-
-  // Sorted by SKU, with number-aware ordering so R-2 comes before R-10. The
-  // sheet itself stays in append order.
-  const rows = items
-    ? [...items].sort((a, b) => a.sku.localeCompare(b.sku, undefined, { numeric: true, sensitivity: "base" }))
-    : [];
+  // Sorted by SKU (number-aware, so R-2 comes before R-10) or by pieces sold,
+  // best sellers first. The sheet itself stays in append order.
+  const bySku = (a: InventoryItem, b: InventoryItem) =>
+    a.sku.localeCompare(b.sku, undefined, { numeric: true, sensitivity: "base" });
+  // A weight search keeps its closest-first order; otherwise the chosen sort applies.
+  const searched = items ? (query.trim() ? searchItems(items, query) : items) : [];
+  const rows =
+    parseWeightQuery(query) !== null
+      ? searched
+      : [...searched].sort(sortBy === "sold" ? (a, b) => soldOf(b) - soldOf(a) || bySku(a, b) : bySku);
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -111,103 +72,32 @@ export function InventoryClient() {
         <TabsList className="self-start">
           <TabsTrigger value="stock">Stock</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="duplicates">Duplicates</TabsTrigger>
         </TabsList>
 
         <TabsContent value="stock" className="mt-0 flex flex-col gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Add item</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                <div>
-                  <Label htmlFor="sku" className="mb-1.5 block text-sm font-normal">
-                    SKU
-                  </Label>
-                  <Input
-                    id="sku"
-                    placeholder="e.g. R-1042"
-                    value={sku}
-                    onChange={(e) => setSku(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="inventoryCategory" className="mb-1.5 block text-sm font-normal">
-                    Category
-                  </Label>
-                  <Select value={category} onValueChange={(v) => setCategory(v as InventoryCategory)}>
-                    <SelectTrigger id="inventoryCategory">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {INVENTORY_CATEGORIES.map((c) => (
-                        <SelectItem key={c.value} value={c.value}>
-                          {c.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="weightGrams" className="mb-1.5 block text-sm font-normal">
-                    Weight (g)
-                  </Label>
-                  <Input
-                    id="weightGrams"
-                    type="number"
-                    inputMode="decimal"
-                    step="0.001"
-                    min="0"
-                    placeholder="e.g. 3.25"
-                    value={weightGrams}
-                    onChange={(e) => setWeightGrams(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="quantity" className="mb-1.5 block text-sm font-normal">
-                    Quantity
-                  </Label>
-                  <Input
-                    id="quantity"
-                    type="number"
-                    inputMode="numeric"
-                    step="1"
-                    min="1"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="shopifyProductId" className="mb-1.5 block text-sm font-normal">
-                    Shopify product ID (optional)
-                  </Label>
-                  <Input
-                    id="shopifyProductId"
-                    placeholder="If already on Shopify"
-                    value={shopifyProductId}
-                    onChange={(e) => setShopifyProductId(e.target.value)}
-                  />
-                </div>
-
-                <div className="sm:col-span-2 lg:col-span-5">
-                  <Label className="mb-1.5 block text-sm font-normal">Photo</Label>
-                  <InventoryPhotoPicker photo={photo} onSelect={setPhoto} onRemove={() => setPhoto(null)} />
-                </div>
-
-                <div className="sm:col-span-2 lg:col-span-5">
-                  <Button type="submit" disabled={addItem.isPending}>
-                    {addItem.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                    Add to inventory
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+          <AddStockCard items={items ?? []} />
 
           <div>
-            <p className="mb-3 text-sm font-medium text-foreground">
-              {isLoading ? "Loading inventory…" : `${rows.length} item${rows.length === 1 ? "" : "s"} in inventory`}
-            </p>
+            <div className="mb-3 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+              <p className="text-sm font-medium text-foreground">
+                {isLoading
+                  ? "Loading inventory…"
+                  : query.trim()
+                    ? `${rows.length} of ${items?.length ?? 0} items match`
+                    : `${rows.length} item${rows.length === 1 ? "" : "s"} in inventory`}
+              </p>
+              <div className="relative sm:w-72">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search SKU, or a weight like 3.2"
+                  className="pl-9"
+                  aria-label="Search inventory by SKU or weight"
+                />
+              </div>
+            </div>
 
             <Card className="overflow-hidden p-0">
               {isLoading ? (
@@ -218,11 +108,11 @@ export function InventoryClient() {
                 </div>
               ) : rows.length === 0 ? (
                 <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
-                  No items yet — add one above.
+                  {query.trim() ? "Nothing matches that search." : "No items yet — add one above."}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[720px] text-sm">
+                  <table className="w-full min-w-[880px] text-sm">
                     <thead>
                       <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
                         <th className="px-4 py-2.5 font-medium">Photo</th>
@@ -230,6 +120,18 @@ export function InventoryClient() {
                         <th className="px-4 py-2.5 font-medium">Category</th>
                         <th className="px-4 py-2.5 text-right font-medium">Weight</th>
                         <th className="px-4 py-2.5 text-right font-medium">Qty</th>
+                        <th className="px-4 py-2.5 text-right font-medium">
+                          <button
+                            type="button"
+                            onClick={() => setSortBy((v) => (v === "sold" ? "sku" : "sold"))}
+                            className={cn("inline-flex items-center gap-1 hover:text-foreground", sortBy === "sold" && "text-foreground")}
+                            title={sortBy === "sold" ? "Sort by SKU" : "Sort by pieces sold"}
+                          >
+                            Sold
+                            <ArrowDownWideNarrow className="h-3 w-3" />
+                          </button>
+                        </th>
+                        <th className="px-4 py-2.5 font-medium">Last sold</th>
                         <th className="px-4 py-2.5 font-medium">Shopify ID</th>
                         <th className="px-4 py-2.5 font-medium">Added</th>
                         <th className="px-4 py-2.5">
@@ -260,6 +162,12 @@ export function InventoryClient() {
                             className={cn("px-4 py-2 text-right tabular-nums", item.quantity === 0 && "text-destructive")}
                           >
                             {item.quantity}
+                          </td>
+                          <td className="px-4 py-2 text-right tabular-nums">
+                            {stockLog.data ? soldOf(item) : "—"}
+                          </td>
+                          <td className="px-4 py-2 text-muted-foreground">
+                            {lastSoldOf(item) ? formatDay(lastSoldOf(item)) : "—"}
                           </td>
                           <td className="px-4 py-2 text-muted-foreground">{item.shopifyProductId || "—"}</td>
                           <td className="px-4 py-2 text-muted-foreground">
@@ -300,6 +208,13 @@ export function InventoryClient() {
               listedSkus={(products.data ?? []).map((product) => product.sku)}
               onSelect={setEditing}
             />
+          )}
+        </TabsContent>
+        <TabsContent value="duplicates" className="mt-0">
+          {isLoading ? (
+            <Skeleton className="h-[360px] rounded-2xl" />
+          ) : (
+            <DuplicatesPanel items={items ?? []} soldOf={soldOf} />
           )}
         </TabsContent>
       </Tabs>
