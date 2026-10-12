@@ -11,6 +11,14 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { InventoryPhotoPicker } from "@/components/inventory/inventory-photo-picker";
+import {
+  EMPTY_PRICING_DRAFT,
+  PricingFields,
+  draftToInventoryPricing,
+  pricingState,
+  type PricingDraft,
+} from "@/components/pricing/pricing-fields";
+import { useAppSettings } from "@/hooks/use-settings";
 import { ItemPicker } from "@/components/sales/item-picker";
 import { useRecordedBy } from "@/components/sales/use-recorded-by";
 import { useAddInventoryItem, useRestockItem } from "@/hooks/use-inventory";
@@ -66,7 +74,13 @@ export function AddStockCard({ items }: { items: InventoryItem[] }) {
   const [shopifyProductId, setShopifyProductId] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
   const [confirmedNew, setConfirmedNew] = useState(false);
+  const [pricingDraft, setPricingDraft] = useState<PricingDraft>(EMPTY_PRICING_DRAFT);
   const addItem = useAddInventoryItem();
+  const ratePerGram = useAppSettings().data?.ratePerGram ?? 0;
+  // The Weight field above is the gross weight the price is based on.
+  const draft = { ...pricingDraft, grossWeight: weightGrams };
+  const pricing = pricingState(draft, ratePerGram);
+  const pricingReady = !pricing.validationError && (!draft.manualOverride || pricing.overridePriceNumber > 0);
 
   const weight = Number(weightGrams);
   const similar = category && weight > 0 ? similarItems(items, category, weight) : [];
@@ -117,12 +131,23 @@ export function AddStockCard({ items }: { items: InventoryItem[] }) {
     if (!(weight > 0)) return void toast.error("Enter a weight greater than 0.");
     if (!Number.isInteger(Number(quantity)) || Number(quantity) < 1) return void toast.error("Enter a quantity of 1 or more.");
     if (!photo) return void toast.error("Add a photo — it's how staff find the piece later.");
+    if (!pricingReady) {
+      return void toast.error(pricing.validationError ?? "Enter the manual override price.");
+    }
     if (similar.length > 0 && !isConfirmed) {
       return void toast.error("Check the similar pieces below first.");
     }
 
     try {
-      await addItem.mutateAsync({ sku: sku.trim(), category, weightGrams, quantity, shopifyProductId: shopifyProductId.trim(), photo });
+      await addItem.mutateAsync({
+        sku: sku.trim(),
+        category,
+        weightGrams,
+        quantity,
+        shopifyProductId: shopifyProductId.trim(),
+        photo,
+        pricing: draftToInventoryPricing(draft),
+      });
       toast.success(`${sku.trim()} added to inventory`);
       // Category is kept so a run of same-category pieces doesn't need it re-picked each time.
       setSku("");
@@ -131,6 +156,8 @@ export function AddStockCard({ items }: { items: InventoryItem[] }) {
       setShopifyProductId("");
       setPhoto(null);
       setConfirmedNew(false);
+      // Making charge and override are kept: a run of similar pieces usually shares them.
+      setPricingDraft((d) => ({ ...d, netWeight: "", stoneLineItems: [] }));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Couldn't save this item.");
     }
@@ -229,7 +256,7 @@ export function AddStockCard({ items }: { items: InventoryItem[] }) {
               </div>
               <div>
                 <Label htmlFor="weightGrams" className="mb-1.5 block text-sm font-normal">
-                  Weight (g)
+                  Gross weight (g)
                 </Label>
                 <Input
                   id="weightGrams"
@@ -272,6 +299,21 @@ export function AddStockCard({ items }: { items: InventoryItem[] }) {
                 <Label className="mb-1.5 block text-sm font-normal">Photo (required)</Label>
                 <InventoryPhotoPicker photo={photo} onSelect={setPhoto} onRemove={() => setPhoto(null)} />
               </div>
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-xl border border-border p-4">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm font-medium text-foreground">Pricing (required)</span>
+                <span className="text-xs text-muted-foreground">
+                  Products created from this SKU take this pricing, and stay in step with it.
+                </span>
+              </div>
+              <PricingFields
+                draft={draft}
+                onChange={(patch) => setPricingDraft((d) => ({ ...d, ...patch }))}
+                ratePerGram={ratePerGram}
+                showGrossWeight={false}
+              />
             </div>
 
             {similar.length > 0 ? (
@@ -320,7 +362,7 @@ export function AddStockCard({ items }: { items: InventoryItem[] }) {
             ) : null}
 
             <div>
-              <Button type="submit" disabled={addItem.isPending || (similar.length > 0 && !isConfirmed)}>
+              <Button type="submit" disabled={addItem.isPending || !pricingReady || (similar.length > 0 && !isConfirmed)}>
                 {addItem.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 Add new design
               </Button>

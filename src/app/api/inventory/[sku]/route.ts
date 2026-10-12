@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   InventorySkuConflictError,
+  listInventoryItems,
   listProducts,
   updateInventoryRow,
   updateProductRow,
@@ -9,6 +10,8 @@ import {
 import { sameSku } from "@/lib/sku";
 import { deleteItem, driveFileIdFromImageProxyUrl, uploadInventoryPhoto } from "@/services/google-drive";
 import { logInventoryPageChange } from "@/services/stock";
+import { applyInventoryPricingToProducts, type LinkedProductPriceResult } from "@/services/inventory-pricing";
+import { hasPricing, parseInventoryPricing, pricingFields, validateInventoryPricing } from "@/lib/inventory-pricing";
 import { INVENTORY_CATEGORIES } from "@/lib/constants";
 import type { InventoryCategory } from "@/types/inventory";
 
@@ -100,6 +103,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sk
     update.quantity = quantity;
   }
 
+  let pricingToValidate: ReturnType<typeof parseInventoryPricing> = null;
+  // Optional: present when the Edit dialog's pricing section was filled in.
+  const pricingRaw = formData.get("pricing");
+  if (pricingRaw !== null) {
+    const pricing = parseInventoryPricing(pricingRaw);
+    if (!pricing) {
+      return NextResponse.json({ error: "Invalid pricing." }, { status: 400 });
+    }
+    Object.assign(update, pricingFields(pricing));
+    pricingToValidate = pricing;
+  }
+
   const photo = formData.get("photo");
   let uploadedPhotoUrl: string | null = null;
 
@@ -109,6 +124,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sk
       update.photoUrl = uploadedPhotoUrl;
     } else if (field("removePhoto") === "true") {
       update.photoUrl = "";
+    }
+
+    if (pricingToValidate) {
+      const gross = update.weightGrams ?? (await listInventoryItems()).find((i) => sameSku(i.sku, sku))?.weightGrams ?? 0;
+      const pricingError = validateInventoryPricing(gross, pricingToValidate);
+      if (pricingError) {
+        if (uploadedPhotoUrl) await deletePhotoQuietly(uploadedPhotoUrl);
+        return NextResponse.json({ error: pricingError }, { status: 400 });
+      }
     }
 
     const { previous, item } = await updateInventoryRow(sku, update);
@@ -121,7 +145,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sk
     if (previous.quantity !== item.quantity) {
       await logInventoryPageChange("correction", item.sku, item.quantity - previous.quantity, item.quantity);
     }
-    return NextResponse.json({ item });
+
+    // Pricing is shared with the products created from this SKU — a change
+    // to it (or to the gross weight it's based on) is pushed to them and Shopify.
+    let linkedProducts: LinkedProductPriceResult[] = [];
+    const pricingChanged = pricingRaw !== null || previous.weightGrams !== item.weightGrams;
+    if (pricingChanged && hasPricing(item)) {
+      linkedProducts = await applyInventoryPricingToProducts(item.sku);
+    }
+    return NextResponse.json({ item, linkedProducts });
   } catch (error) {
     // The row wasn't saved, so a photo uploaded for it would be orphaned.
     if (uploadedPhotoUrl) await deletePhotoQuietly(uploadedPhotoUrl);

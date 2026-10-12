@@ -18,6 +18,7 @@ import {
   getShopifyProductStockVariants,
   type ShopifyStockVariant,
 } from "@/services/shopify";
+import { hasPricing, pricingFields, pricingOf } from "@/lib/inventory-pricing";
 import { normalizeSku, sameSku } from "@/lib/sku";
 import { parseVariantRows, serializeVariantRows, totalVariantInventory } from "@/lib/variants";
 import type { InventoryItem } from "@/types/inventory";
@@ -408,6 +409,8 @@ export async function mergeInventoryItems(keepSku: string, removeSku: string, re
   const { item } = await updateInventoryRow(keep.sku, {
     photoUrl: keep.photoUrl || remove.photoUrl,
     shopifyProductId: keep.shopifyProductId || remove.shopifyProductId,
+    // An unpriced row takes the other's pricing, so merging never loses a price.
+    ...(!hasPricing(keep) && hasPricing(remove) ? pricingFields(pricingOf(remove)) : {}),
   });
   await deleteInventoryRow(remove.sku);
 

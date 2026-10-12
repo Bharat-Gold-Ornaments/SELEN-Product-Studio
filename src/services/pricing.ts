@@ -1,7 +1,8 @@
 import "server-only";
 import { readAppSettings, writeAppSettings } from "@/services/app-settings";
 import { readConfigFile, writeConfigFile } from "@/services/google-drive";
-import { listProducts, updateProductRow, findProduct } from "@/services/google-sheets";
+import { listProducts, updateProductRow, findProduct, updateInventoryRow } from "@/services/google-sheets";
+import { pricingFields } from "@/lib/inventory-pricing";
 import { updateShopifyProductPrice } from "@/services/shopify";
 import {
   applyGstAndRound,
@@ -94,10 +95,16 @@ export interface SaveProductPricingResult {
  * pricing data and computed price are still persisted, just flagged
  * `priceSyncStatus: "out_of_sync"` for a manual retry (see
  * useRetrySync/the "out of sync" badge on Finalize).
+ *
+ * A product created from an Inventory SKU shares that SKU's pricing: the
+ * same values are written back to the Inventory row, which in turn keeps
+ * any other product on that SKU in step (services/inventory-pricing.ts).
+ * `syncInventory: false` is for that path, which already saved Inventory.
  */
 export async function saveProductPricing(
   productId: string,
-  input: SaveProductPricingInput
+  input: SaveProductPricingInput,
+  options: { syncInventory?: boolean } = {}
 ): Promise<SaveProductPricingResult> {
   const settings = await readAppSettings();
   const priceInputs: PriceInputs = {
@@ -157,6 +164,27 @@ export async function saveProductPricing(
     priceSyncStatus,
     priceSyncedAt,
   });
+
+  if (options.syncInventory !== false && lookup.record.sku) {
+    try {
+      await updateInventoryRow(lookup.record.sku, {
+        weightGrams: input.grossWeightGrams,
+        ...pricingFields({
+          netWeightGrams: input.netWeightGrams,
+          makingChargeMode: input.makingChargeMode,
+          makingChargeValue: input.makingChargeValue,
+          stoneLineItems: input.stoneLineItems,
+          manualPriceOverride: input.manualPriceOverride,
+          manualPriceOverrideValue: input.manualPriceOverrideValue ?? 0,
+        }),
+      });
+      const { applyInventoryPricingToProducts } = await import("@/services/inventory-pricing");
+      await applyInventoryPricingToProducts(lookup.record.sku, { exceptProductId: productId });
+    } catch (error) {
+      // The product's own price is saved; Inventory catches up on its next pricing save.
+      console.error(`Couldn't copy product ${productId}'s pricing to Inventory SKU ${lookup.record.sku}`, error);
+    }
+  }
 
   return { price, priceSyncStatus, priceSyncedAt };
 }

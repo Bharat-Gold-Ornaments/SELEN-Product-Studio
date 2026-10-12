@@ -93,6 +93,9 @@ export function useSaveProductPricing() {
     },
     onSuccess: (_result, { productId }) => {
       queryClient.invalidateQueries({ queryKey: ["product", productId] });
+      // Pricing is shared with the product's Inventory SKU.
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["products-list"] });
     },
   });
 }

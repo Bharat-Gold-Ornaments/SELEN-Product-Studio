@@ -20,6 +20,8 @@ import { normalizeSku } from "@/lib/sku";
 import { INVENTORY_CATEGORIES } from "@/lib/constants";
 import { cn, formatDate, formatGrams } from "@/lib/utils";
 import { useInventory } from "@/hooks/use-inventory";
+import { useAppSettings } from "@/hooks/use-settings";
+import { hasPricing, inventoryPrice } from "@/lib/inventory-pricing";
 import { parseWeightQuery, searchItems } from "@/lib/item-search";
 import type { InventoryCategory, InventoryItem } from "@/types/inventory";
 
@@ -37,6 +39,10 @@ export function InventoryClient() {
   const [sortBy, setSortBy] = useState<"sku" | "sold">("sku");
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<InventoryItem | null>(null);
+
+  // Live at today's rate — the price Finalize would compute, not a stored figure.
+  const ratePerGram = useAppSettings().data?.ratePerGram ?? 0;
+  const priceOf = (item: InventoryItem) => inventoryPrice(item, ratePerGram);
 
   const salesBySku = useMemo(() => salesTotalsBySku(stockLog.data ?? []), [stockLog.data]);
   const soldOf = (item: InventoryItem) => salesBySku.get(normalizeSku(item.sku))?.sold ?? 0;
@@ -112,13 +118,14 @@ export function InventoryClient() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[880px] text-sm">
+                  <table className="w-full min-w-[980px] text-sm">
                     <thead>
                       <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
                         <th className="px-4 py-2.5 font-medium">Photo</th>
                         <th className="px-4 py-2.5 font-medium">SKU</th>
                         <th className="px-4 py-2.5 font-medium">Category</th>
                         <th className="px-4 py-2.5 text-right font-medium">Weight</th>
+                        <th className="px-4 py-2.5 text-right font-medium">Price</th>
                         <th className="px-4 py-2.5 text-right font-medium">Qty</th>
                         <th className="px-4 py-2.5 text-right font-medium">
                           <button
@@ -158,6 +165,13 @@ export function InventoryClient() {
                             <Badge variant="secondary">{CATEGORY_LABEL[item.category] ?? item.category}</Badge>
                           </td>
                           <td className="px-4 py-2 text-right tabular-nums">{formatGrams(item.weightGrams)}</td>
+                          <td className="px-4 py-2 text-right tabular-nums">
+                            {priceOf(item) !== null ? (
+                              `₹${priceOf(item)!.toLocaleString("en-IN")}`
+                            ) : (
+                              <Badge variant="warning">{hasPricing(item) ? "No rate set" : "Not priced"}</Badge>
+                            )}
+                          </td>
                           <td
                             className={cn("px-4 py-2 text-right tabular-nums", item.quantity === 0 && "text-destructive")}
                           >

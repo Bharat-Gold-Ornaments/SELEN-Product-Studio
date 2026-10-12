@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Link2, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,18 @@ import {
 import { InventoryPhotoPicker } from "@/components/inventory/inventory-photo-picker";
 import { INVENTORY_CATEGORIES } from "@/lib/constants";
 import { useUpdateInventoryItem } from "@/hooks/use-inventory";
+import { useProductsList } from "@/hooks/use-products-list";
+import { useAppSettings } from "@/hooks/use-settings";
+import {
+  EMPTY_PRICING_DRAFT,
+  PricingFields,
+  draftFromInventoryPricing,
+  draftToInventoryPricing,
+  pricingState,
+  type PricingDraft,
+} from "@/components/pricing/pricing-fields";
+import { hasPricing, pricingFromProduct, pricingOf } from "@/lib/inventory-pricing";
+import { sameSku } from "@/lib/sku";
 import type { InventoryCategory, InventoryItem } from "@/types/inventory";
 
 interface EditInventoryDialogProps {
@@ -34,6 +46,35 @@ export function EditInventoryDialog({ item, onClose }: EditInventoryDialogProps)
   const [photoRemoved, setPhotoRemoved] = useState(false);
 
   const update = useUpdateInventoryItem();
+  const ratePerGram = useAppSettings().data?.ratePerGram ?? 0;
+  const products = useProductsList();
+  const linkedProducts = useMemo(
+    () => (products.data ?? []).filter((p) => p.sku && sameSku(p.sku, item.sku)),
+    [products.data, item.sku]
+  );
+
+  // Starting pricing: the item's own, or — for an item never priced — that of
+  // the product already created from it, so pricing entered on Finalize
+  // before Inventory had pricing isn't lost.
+  const productPricing = useMemo(() => {
+    for (const product of linkedProducts) {
+      const pricing = pricingFromProduct(product);
+      if (pricing) return { product, pricing };
+    }
+    return null;
+  }, [linkedProducts]);
+  const initialPricing = hasPricing(item) ? pricingOf(item) : (productPricing?.pricing ?? null);
+  const initialDraft = initialPricing
+    ? draftFromInventoryPricing(item.weightGrams, initialPricing)
+    : { ...EMPTY_PRICING_DRAFT, grossWeight: String(item.weightGrams) };
+  const [pricingDraft, setPricingDraft] = useState<PricingDraft | null>(null);
+  // Products load after the dialog opens; until the pricing is edited, follow what's loaded.
+  const draft = { ...(pricingDraft ?? initialDraft), grossWeight: weightGrams };
+  const pricing = pricingState(draft, ratePerGram);
+  const pricingEntered = draft.netWeight.trim() !== "";
+  const pricingDirty =
+    pricingEntered &&
+    (!hasPricing(item) || JSON.stringify(draftToInventoryPricing(draft)) !== JSON.stringify(pricingOf(item)));
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -50,9 +91,17 @@ export function EditInventoryDialog({ item, onClose }: EditInventoryDialogProps)
       toast.error("Enter a quantity of 0 or more.");
       return;
     }
+    if (hasPricing(item) && !pricingEntered) {
+      toast.error("Pricing can't be removed — enter the net weight.");
+      return;
+    }
+    if (pricingEntered && (pricing.validationError || (draft.manualOverride && !(pricing.overridePriceNumber > 0)))) {
+      toast.error(pricing.validationError ?? "Enter the manual override price.");
+      return;
+    }
 
     try {
-      await update.mutateAsync({
+      const result = await update.mutateAsync({
         sku: item.sku,
         newSku: trimmedSku !== item.sku ? trimmedSku : undefined,
         category,
@@ -61,8 +110,20 @@ export function EditInventoryDialog({ item, onClose }: EditInventoryDialogProps)
         shopifyProductId: shopifyProductId.trim(),
         photo: photo ?? undefined,
         removePhoto: photoRemoved,
+        pricing: pricingDirty ? draftToInventoryPricing(draft) : undefined,
       });
-      toast.success(`${trimmedSku} updated`);
+      const failed = result.linkedProducts.filter((p) => p.error || p.priceSyncStatus === "out_of_sync");
+      const updated = result.linkedProducts.length - failed.length;
+      if (failed.length > 0) {
+        toast.warning(
+          `${trimmedSku} updated, but the price of ${failed.map((p) => p.title).join(", ")} couldn't be fully updated: ` +
+            (failed[0].error ?? "Shopify sync failed — retry from its Finalize page.")
+        );
+      } else if (updated > 0) {
+        toast.success(`${trimmedSku} updated — new price applied to ${updated} product${updated === 1 ? "" : "s"} and Shopify.`);
+      } else {
+        toast.success(`${trimmedSku} updated`);
+      }
       onClose();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Couldn't update this item.");
@@ -71,7 +132,7 @@ export function EditInventoryDialog({ item, onClose }: EditInventoryDialogProps)
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-xl">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-xl">
         <DialogTitle>Edit {item.sku}</DialogTitle>
         <form onSubmit={handleSubmit} className="mt-4 grid grid-cols-2 gap-4">
           <div className="col-span-2">
@@ -99,7 +160,7 @@ export function EditInventoryDialog({ item, onClose }: EditInventoryDialogProps)
           </div>
           <div>
             <Label htmlFor="editWeight" className="mb-1.5 block text-sm font-normal">
-              Weight (g)
+              Gross weight (g)
             </Label>
             <Input
               id="editWeight"
@@ -145,6 +206,31 @@ export function EditInventoryDialog({ item, onClose }: EditInventoryDialogProps)
                 setPhoto(null);
                 setPhotoRemoved(true);
               }}
+            />
+          </div>
+          <div className="col-span-2 flex flex-col gap-3 rounded-xl border border-border p-4">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium text-foreground">Pricing</span>
+              {linkedProducts.length > 0 ? (
+                <span className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                  <Link2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  Shared with {linkedProducts.map((p) => p.title).join(", ")} — a change here updates
+                  {linkedProducts.length === 1 ? " its" : " their"} price on the Products tab and Shopify.
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground">Products created from this SKU take this pricing.</span>
+              )}
+              {!hasPricing(item) && productPricing ? (
+                <span className="text-xs text-warning">
+                  Filled in from {productPricing.product.title}. Save to keep it on Inventory too.
+                </span>
+              ) : null}
+            </div>
+            <PricingFields
+              draft={draft}
+              onChange={(patch) => setPricingDraft({ ...draft, ...patch })}
+              ratePerGram={ratePerGram}
+              showGrossWeight={false}
             />
           </div>
           <div className="col-span-2 mt-2 flex justify-end gap-2">

@@ -497,6 +497,12 @@ const INVENTORY_COLUMNS = [
   "shopifyProductId",
   "createdDate",
   "quantity",
+  "netWeightGrams",
+  "makingChargeMode",
+  "makingChargeValue",
+  "stoneLineItems",
+  "manualPriceOverride",
+  "manualPriceOverrideValue",
 ] as const satisfies readonly (keyof InventoryItem)[];
 
 const INVENTORY_LAST_COLUMN_LETTER = columnLetter(INVENTORY_COLUMNS.length - 1);
@@ -568,6 +574,12 @@ function rowToInventoryItem(row: string[]): InventoryItem {
     createdDate: get(5),
     // Rows written before this column existed were one piece each.
     quantity: get(6) === "" ? 1 : Number(get(6)) || 0,
+    netWeightGrams: Number(get(7)) || 0,
+    makingChargeMode: get(8) === "flat" ? "flat" : "per_gram",
+    makingChargeValue: Number(get(9)) || 0,
+    stoneLineItems: get(10),
+    manualPriceOverride: get(11).toLowerCase() === "true",
+    manualPriceOverrideValue: Number(get(12)) || 0,
   };
 }
 
@@ -622,6 +634,12 @@ export interface InventoryUpdate {
   quantity?: number;
   /** New photo's proxy URL, or "" to clear it. */
   photoUrl?: string;
+  netWeightGrams?: number;
+  makingChargeMode?: InventoryItem["makingChargeMode"];
+  makingChargeValue?: number;
+  stoneLineItems?: string;
+  manualPriceOverride?: boolean;
+  manualPriceOverrideValue?: number;
 }
 
 /**

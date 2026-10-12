@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Controller, useForm, type FieldPath, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Loader2, Sparkles } from "lucide-react";
+import { IndianRupee, Loader2, Sparkles } from "lucide-react";
 
 import {
   PRODUCT_SCHEMAS,
@@ -15,7 +15,7 @@ import {
   defaultValuesFor,
   type ProductFormValues,
 } from "@/lib/product-schemas";
-import { generateProductId } from "@/lib/utils";
+import { cn, generateProductId } from "@/lib/utils";
 import { useStartGeneration } from "@/hooks/use-generation";
 import { IMAGE_CATEGORIES, IMAGE_CATEGORY_LABELS } from "@/lib/constants";
 import type { ProductType, ImageCategory } from "@/types/product";
@@ -25,6 +25,9 @@ import { PhotoUploadField, type PoolPhotoRef } from "./photo-upload-field";
 import { PoolPhotoPicker } from "./pool-photo-picker";
 import { TagInput } from "./tag-input";
 import { InventorySkuField } from "./inventory-sku-field";
+import { useAppSettings } from "@/hooks/use-settings";
+import { hasPricing, inventoryPrice } from "@/lib/inventory-pricing";
+import type { InventoryItem } from "@/types/inventory";
 import type { PoolPhoto, PoolPhotoAngle } from "@/hooks/use-pool-photos";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -103,6 +106,11 @@ export function DynamicProductForm({ productType }: DynamicProductFormProps) {
   // user actually types in that case, this only tracks which UI mode
   // (dropdown vs. free-text input) is currently showing for it.
   const [customFields, setCustomFields] = useState<Set<string>>(() => new Set());
+  // The Inventory row picked as the SKU — its pricing comes along to the new product.
+  const [skuItem, setSkuItem] = useState<InventoryItem | null>(null);
+  const ratePerGram = useAppSettings().data?.ratePerGram ?? 0;
+  const skuPriced = skuItem ? hasPricing(skuItem) : false;
+  const skuPrice = skuItem ? inventoryPrice(skuItem, ratePerGram) : null;
 
   function handlePoolPick(slot: "front" | "side" | "worn", photo: PoolPhoto) {
     setPoolPhotos((prev) => ({ ...prev, [slot]: { fileId: photo.fileId, publicUrl: photo.publicUrl } }));
@@ -256,6 +264,7 @@ export function DynamicProductForm({ productType }: DynamicProductFormProps) {
                 error={fieldErrors.sku?.message}
                 onSelect={(item) => {
                   field.onChange(item.sku);
+                  setSkuItem(item);
                   // Prefill from the Inventory row; both stay editable.
                   setValue("weightGrams" as FieldPath<ProductFormValues>, String(item.weightGrams) as never, {
                     shouldValidate: true,
@@ -275,9 +284,37 @@ export function DynamicProductForm({ productType }: DynamicProductFormProps) {
               step="any"
               inputMode="decimal"
               placeholder="0.0"
+              readOnly={skuPriced}
               {...register("weightGrams" as FieldPath<ProductFormValues>)}
             />
           </FormField>
+
+          {skuItem ? (
+            <div
+              className={cn(
+                "flex items-start gap-2 rounded-xl border px-3 py-2.5 text-sm sm:col-span-2",
+                skuPriced ? "border-border bg-muted/40" : "border-warning/30 bg-warning/5"
+              )}
+            >
+              <IndianRupee className={cn("mt-0.5 h-4 w-4 shrink-0", skuPriced ? "text-muted-foreground" : "text-warning")} />
+              {skuPriced ? (
+                <span className="text-foreground">
+                  Price from Inventory: <span className="font-semibold">{skuPrice !== null ? `₹${skuPrice.toLocaleString("en-IN")}` : "set a Rate/gram in Settings"}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    The product takes {skuItem.sku}&apos;s pricing and weight, and stays linked: a change on the Inventory page or
+                    Finalize updates both, and Shopify.
+                  </span>
+                </span>
+              ) : (
+                <span className="text-foreground">
+                  {skuItem.sku} isn&apos;t priced yet.
+                  <span className="block text-xs text-muted-foreground">
+                    Price it on the Inventory page first, or on Finalize later — either way it&apos;s saved to both.
+                  </span>
+                </span>
+              )}
+            </div>
+          ) : null}
 
           {extraFields.map((extraField) => {
             if (extraField.type === "number") {

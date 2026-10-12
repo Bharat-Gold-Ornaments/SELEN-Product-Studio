@@ -1,5 +1,6 @@
 import { INVENTORY_CATEGORIES } from "@/lib/constants";
 import { normalizeSku } from "@/lib/sku";
+import { hasPricing } from "@/lib/inventory-pricing";
 import type { InventoryCategory, InventoryItem } from "@/types/inventory";
 
 /** Quantity 0 is out of stock; exactly 1 is low stock. */
@@ -69,6 +70,8 @@ export interface InventoryStats {
   notListed: InventoryItem[];
   /** No photo, so staff can't find it by picture when selling or restocking. */
   noPhoto: InventoryItem[];
+  /** No pricing yet, so a product created from it starts without a price. */
+  notPriced: InventoryItem[];
 }
 
 /** "RRA001" → { prefix: "RRA", number: 1, digits: 3 }; null if the SKU isn't letters followed by digits. */
@@ -151,5 +154,6 @@ export function computeInventoryStats(items: InventoryItem[], listedSkus: string
     lowStock: items.filter((item) => stockLevel(item.quantity) === "low").sort(bySku),
     notListed,
     noPhoto: items.filter((item) => !item.photoUrl).sort(bySku),
+    notPriced: items.filter((item) => !hasPricing(item)).sort(bySku),
   };
 }

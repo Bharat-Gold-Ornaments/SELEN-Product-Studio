@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { appendInventoryRow, listInventoryItems } from "@/services/google-sheets";
 import { uploadInventoryPhoto } from "@/services/google-drive";
 import { logInventoryPageChange } from "@/services/stock";
+import { parseInventoryPricing, pricingFields, validateInventoryPricing } from "@/lib/inventory-pricing";
 import { INVENTORY_CATEGORIES } from "@/lib/constants";
 import type { InventoryCategory, InventoryItem } from "@/types/inventory";
 
@@ -49,6 +50,15 @@ export async function POST(request: Request) {
   if (!(photo instanceof File && photo.size > 0)) {
     return NextResponse.json({ error: "Add a photo of the piece." }, { status: 400 });
   }
+  // A new design is priced up front, so a product created from it starts with its price.
+  const pricing = parseInventoryPricing(formData.get("pricing"));
+  if (!pricing) {
+    return NextResponse.json({ error: "Fill in the pricing." }, { status: 400 });
+  }
+  const pricingError = validateInventoryPricing(weightGrams, pricing);
+  if (pricingError) {
+    return NextResponse.json({ error: pricingError }, { status: 400 });
+  }
 
   try {
     const existing = await listInventoryItems();
@@ -69,6 +79,7 @@ export async function POST(request: Request) {
       photoUrl,
       shopifyProductId,
       createdDate: new Date().toISOString(),
+      ...pricingFields(pricing),
     };
     await appendInventoryRow(item);
     await logInventoryPageChange("new", item.sku, item.quantity, item.quantity);

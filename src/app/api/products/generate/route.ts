@@ -7,6 +7,8 @@ import { PRODUCT_TYPES } from "@/lib/constants";
 import { runInitialGeneration, type OriginalPhoto } from "@/services/product-generation";
 import { appendProductRow, listInventoryItems, listProducts, updateProductRow } from "@/services/google-sheets";
 import { sameSku } from "@/lib/sku";
+import { pricingFromInventory } from "@/services/inventory-pricing";
+import type { InventoryItem } from "@/types/inventory";
 import { downloadFile, markPoolPhotoUsed } from "@/services/google-drive";
 import { IMAGE_CATEGORIES } from "@/lib/constants";
 import type { ProductType, ImageCategory } from "@/types/product";
@@ -71,6 +73,7 @@ export async function POST(request: Request) {
   }
 
   let values = parsed.data as ProductFormValues;
+  let inventoryItem: InventoryItem | undefined;
 
   // A product can only be created for a piece that's already in Inventory,
   // and each Inventory SKU backs at most one product. Unlike the Sheet
@@ -78,7 +81,7 @@ export async function POST(request: Request) {
   // fails the request.
   try {
     const [inventory, products] = await Promise.all([listInventoryItems(), listProducts()]);
-    const inventoryItem = inventory.find((item) => sameSku(item.sku, values.sku));
+    inventoryItem = inventory.find((item) => sameSku(item.sku, values.sku));
     if (!inventoryItem) {
       return NextResponse.json(
         { error: `SKU "${values.sku}" isn't in Inventory. Add it on the Inventory page first.` },
@@ -178,7 +181,9 @@ export async function POST(request: Request) {
   // `driveError`) — a Sheets outage or missing credentials should never
   // block the part of Generate the user is actually waiting on.
   let sheetsError: string | null = null;
-  const sheetsWritePromise = appendProductRow(buildDraftProductRecord(productId, values)).catch((error) => {
+  // The SKU's Inventory pricing comes along, so Finalize opens already priced.
+  const draftRecord = { ...buildDraftProductRecord(productId, values), ...(await pricingFromInventory(inventoryItem)) };
+  const sheetsWritePromise = appendProductRow(draftRecord).catch((error) => {
     sheetsError = error instanceof Error ? error.message : "Couldn't save this product to Google Sheets.";
   });
 

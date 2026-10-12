@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Boxes, CircleSlash, ImageOff, Layers, PackageMinus, Scale, Store, type LucideIcon } from "lucide-react";
+import { Boxes, CircleSlash, ImageOff, IndianRupee, Layers, PackageMinus, Scale, Store, type LucideIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -255,7 +255,7 @@ export function InventoryOverview({ items, listedSkus, onSelect }: InventoryOver
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <AttentionList
           title="Out of stock"
           icon={CircleSlash}
@@ -286,6 +286,14 @@ export function InventoryOverview({ items, listedSkus, onSelect }: InventoryOver
           description="Staff find pieces by photo when selling or restocking. Click one to add a photo."
           items={stats.noPhoto}
           emptyLabel="Every SKU has a photo."
+          onSelect={onSelect}
+        />
+        <AttentionList
+          title="Not priced"
+          icon={IndianRupee}
+          description="No pricing yet. Click one to price it — products created from it take that price."
+          items={stats.notPriced}
+          emptyLabel="Every SKU is priced."
           onSelect={onSelect}
         />
       </div>
