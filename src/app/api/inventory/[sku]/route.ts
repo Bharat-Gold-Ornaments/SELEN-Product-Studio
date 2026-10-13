@@ -2,14 +2,13 @@ import { NextResponse } from "next/server";
 import {
   InventorySkuConflictError,
   listInventoryItems,
-  listProducts,
   updateInventoryRow,
-  updateProductRow,
   type InventoryUpdate,
 } from "@/services/google-sheets";
 import { sameSku } from "@/lib/sku";
 import { deleteItem, driveFileIdFromImageProxyUrl, uploadInventoryPhoto } from "@/services/google-drive";
 import { logInventoryPageChange } from "@/services/stock";
+import { replaceSkuInProducts } from "@/services/product-skus";
 import { applyInventoryPricingToProducts, type LinkedProductPriceResult } from "@/services/inventory-pricing";
 import { hasPricing, parseInventoryPricing, pricingFields, validateInventoryPricing } from "@/lib/inventory-pricing";
 import { INVENTORY_CATEGORIES } from "@/lib/constants";
@@ -34,12 +33,7 @@ async function deletePhotoQuietly(photoUrl: string): Promise<void> {
  */
 async function renameProductSku(oldSku: string, newSku: string): Promise<void> {
   try {
-    const products = await listProducts();
-    await Promise.all(
-      products
-        .filter((product) => product.sku && sameSku(product.sku, oldSku))
-        .map((product) => updateProductRow(product.productId, { sku: newSku }))
-    );
+    await replaceSkuInProducts(oldSku, newSku);
   } catch (error) {
     console.error(`Couldn't rename SKU ${oldSku} to ${newSku} on the Products tab`, error);
   }

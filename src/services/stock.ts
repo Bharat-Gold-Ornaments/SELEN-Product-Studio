@@ -18,6 +18,7 @@ import {
   getShopifyProductStockVariants,
   type ShopifyStockVariant,
 } from "@/services/shopify";
+import { replaceSkuInProducts } from "@/services/product-skus";
 import { hasPricing, pricingFields, pricingOf } from "@/lib/inventory-pricing";
 import { normalizeSku, sameSku } from "@/lib/sku";
 import { parseVariantRows, serializeVariantRows, totalVariantInventory } from "@/lib/variants";
@@ -89,6 +90,18 @@ async function resolveShopifyTarget(
   if (bySku.length === 1) return { kind: "found", variant: bySku[0] };
   if (bySku.length > 1) {
     return { kind: "pending", reason: `SKU is on ${bySku.length} Shopify variants — keep it on one only.` };
+  }
+
+  // A Studio product variant sold as this SKU: its Shopify variant is the
+  // one with the same Color/Size, even before Shopify has the SKU itself.
+  for (const product of products) {
+    const id = product.shopifyProductId?.trim();
+    const row = parseVariantRows(product.variants).find((r) => r.sku && sameSku(r.sku, sku));
+    if (!id || !row) continue;
+    const variants = await getShopifyProductStockVariants(id);
+    const key = (color: string, size: string) => `${color.trim().toLowerCase()}::${size.trim().toLowerCase()}`;
+    const match = variants?.find((v) => key(v.color, v.size) === key(row.color, row.size));
+    if (match) return { kind: "found", variant: match };
   }
 
   const linkedIds = new Set(
@@ -400,7 +413,7 @@ export async function mergeInventoryItems(keepSku: string, removeSku: string, re
   const who = requireName(recordedBy, "merging these items");
   if (sameSku(keepSku, removeSku)) throw new StockInputError("Pick two different SKUs.");
 
-  const [inventory, products] = await Promise.all([listInventoryItems(), listProducts()]);
+  const inventory = await listInventoryItems();
   const keep = inventory.find((item) => sameSku(item.sku, keepSku));
   const remove = inventory.find((item) => sameSku(item.sku, removeSku));
   if (!keep || !remove) throw new StockInputError("One of those SKUs is no longer in Inventory.", 404);
@@ -414,9 +427,7 @@ export async function mergeInventoryItems(keepSku: string, removeSku: string, re
   });
   await deleteInventoryRow(remove.sku);
 
-  for (const product of products.filter((p) => p.sku && sameSku(p.sku, remove.sku))) {
-    await updateProductRow(product.productId, { sku: keep.sku });
-  }
+  await replaceSkuInProducts(remove.sku, keep.sku);
 
   const date = new Date().toISOString().slice(0, 10);
   await appendStockLogEntries([

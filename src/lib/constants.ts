@@ -16,6 +16,15 @@ export const INVENTORY_CATEGORIES: { value: InventoryCategory; label: string }[]
   { value: "chain", label: "Chains" },
 ];
 
+/** The Inventory category a Studio product type corresponds to; null when there's no match (bracelets). */
+export const PRODUCT_TYPE_INVENTORY_CATEGORY: Record<ProductType, InventoryCategory | null> = {
+  earrings: "earrings",
+  ring: "ring",
+  pendant: "pendant",
+  necklace: "chain",
+  bracelet: null,
+};
+
 export const PRODUCT_STATUSES: { value: ProductStatus; label: string }[] = [
   { value: "draft", label: "Draft" },
   { value: "processing", label: "Processing" },

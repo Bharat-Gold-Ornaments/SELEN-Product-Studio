@@ -16,6 +16,7 @@ import {
   retryPendingShopifyChanges,
 } from "@/services/stock";
 import { normalizeSku, sameSku } from "@/lib/sku";
+import { parseVariantRows } from "@/lib/variants";
 import type { InventoryItem } from "@/types/inventory";
 import type { ProductRecord } from "@/types/product";
 import type { OnlineSyncState, WaitingOnlineSale } from "@/types/online-orders";
@@ -72,8 +73,9 @@ type LineMatch = { sku: string } | { reason: string };
 
 /**
  * The Inventory SKU an order line sold: by the variant's SKU (current, then
- * as ordered), or else by an Inventory row or Studio product linked to the
- * line's Shopify product when that product has a single variant.
+ * as ordered), else by the Studio product variant with the same Color/Size,
+ * else by an Inventory row or Studio product linked to the line's Shopify
+ * product when that product has a single variant.
  */
 function matchLine(line: ShopifyOrderLine, inventory: InventoryItem[], products: ProductRecord[]): LineMatch {
   for (const sku of [line.currentSku, line.sku]) {
@@ -83,6 +85,14 @@ function matchLine(line: ShopifyOrderLine, inventory: InventoryItem[], products:
   if (!line.shopifyProductId) return { reason: "The product was deleted from Shopify." };
 
   const id = line.shopifyProductId;
+  // A Studio product variant with the same Color/Size, linked to its Inventory SKU.
+  const key = (color: string, size: string) => `${color.trim().toLowerCase()}::${size.trim().toLowerCase()}`;
+  for (const product of products.filter((p) => p.shopifyProductId?.trim() === id)) {
+    const row = parseVariantRows(product.variants).find((r) => r.sku && key(r.color, r.size) === key(line.color, line.size));
+    const item = row ? inventory.find((i) => sameSku(i.sku, row.sku)) : undefined;
+    if (item) return { sku: item.sku };
+  }
+
   const linked = new Set(
     [
       ...inventory.filter((i) => i.shopifyProductId.trim() === id).map((i) => i.sku),

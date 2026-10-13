@@ -232,8 +232,10 @@ export function VariantsPanel({ productId, record, basePrice, ratePerGram, onVar
           netWeightGrams: 0,
           inventory: record.inventory,
           // This row IS the default color, so it should be the one variant
-          // using the plain default photos.
+          // using the plain default photos — and it's the piece the product
+          // was created from, so it carries that SKU.
           useDefaultImages: true,
+          sku: record.sku ?? "",
         },
       ]);
     } else {
@@ -307,6 +309,7 @@ export function VariantsPanel({ productId, record, basePrice, ratePerGram, onVar
             ) : null}
 
             <VariantsTable
+              productId={productId}
               rows={rows}
               onChange={handleRowsChange}
               defaultImages={availableImages}

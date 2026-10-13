@@ -28,7 +28,9 @@ import {
   type PricingDraft,
 } from "@/components/pricing/pricing-fields";
 import { hasPricing, pricingFromProduct, pricingOf } from "@/lib/inventory-pricing";
-import { sameSku } from "@/lib/sku";
+import { normalizeSku } from "@/lib/sku";
+import { describeSkuUse, skuUses } from "@/lib/product-skus";
+import { parseVariantRows } from "@/lib/variants";
 import type { InventoryCategory, InventoryItem } from "@/types/inventory";
 
 interface EditInventoryDialogProps {
@@ -48,18 +50,23 @@ export function EditInventoryDialog({ item, onClose }: EditInventoryDialogProps)
   const update = useUpdateInventoryItem();
   const ratePerGram = useAppSettings().data?.ratePerGram ?? 0;
   const products = useProductsList();
-  const linkedProducts = useMemo(
-    () => (products.data ?? []).filter((p) => p.sku && sameSku(p.sku, item.sku)),
-    [products.data, item.sku]
-  );
+  // The products, or product variants, that sell this SKU.
+  const linkedProducts = useMemo(() => {
+    const records = products.data ?? [];
+    return (skuUses(records).get(normalizeSku(item.sku)) ?? []).map((use) => {
+      const record = records.find((p) => p.productId === use.productId)!;
+      const row = use.variantId ? parseVariantRows(record.variants).find((r) => r.id === use.variantId) : undefined;
+      return { title: describeSkuUse(use), record, row };
+    });
+  }, [products.data, item.sku]);
 
   // Starting pricing: the item's own, or — for an item never priced — that of
-  // the product already created from it, so pricing entered on Finalize
-  // before Inventory had pricing isn't lost.
+  // the product (or variant) already selling it, so pricing entered on
+  // Finalize before Inventory had pricing isn't lost.
   const productPricing = useMemo(() => {
-    for (const product of linkedProducts) {
-      const pricing = pricingFromProduct(product);
-      if (pricing) return { product, pricing };
+    for (const linked of linkedProducts) {
+      const pricing = pricingFromProduct(linked.record, linked.row);
+      if (pricing) return { title: linked.title, pricing };
     }
     return null;
   }, [linkedProducts]);
@@ -222,7 +229,7 @@ export function EditInventoryDialog({ item, onClose }: EditInventoryDialogProps)
               )}
               {!hasPricing(item) && productPricing ? (
                 <span className="text-xs text-warning">
-                  Filled in from {productPricing.product.title}. Save to keep it on Inventory too.
+                  Filled in from {productPricing.title}. Save to keep it on Inventory too.
                 </span>
               ) : null}
             </div>

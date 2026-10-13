@@ -19,9 +19,18 @@ import {
   type VariantPricingContext,
 } from "@/lib/variants";
 import { computeFinalPrice } from "@/lib/pricing";
+import { hasPricing, inventoryPrice } from "@/lib/inventory-pricing";
+import { describeSkuUse, skuUsedElsewhere, skuUses } from "@/lib/product-skus";
+import { normalizeSku } from "@/lib/sku";
+import { formatGrams } from "@/lib/utils";
+import { useInventory } from "@/hooks/use-inventory";
+import { useProductsList } from "@/hooks/use-products-list";
 import type { ImageCategory } from "@/types/product";
+import type { InventoryItem } from "@/types/inventory";
 
 interface VariantsTableProps {
+  /** This product — its own SKUs stay pickable; ones used by other products don't. */
+  productId: string;
   rows: VariantRow[];
   onChange: (rows: VariantRow[]) => void;
   /** The product's own picked Hero/Lifestyle/Closeup photos (from Review) — shown as a preview once a row picks "Use default images". */
@@ -47,6 +56,7 @@ function newVariantRow(): VariantRow {
     netWeightGrams: 0,
     inventory: 0,
     useDefaultImages: false,
+    sku: "",
   };
 }
 
@@ -74,6 +84,7 @@ function newVariantRow(): VariantRow {
  * but have no way to be selected on the storefront.
  */
 export function VariantsTable({
+  productId,
   rows,
   onChange,
   defaultImages,
@@ -83,6 +94,35 @@ export function VariantsTable({
   pricing,
 }: VariantsTableProps) {
   const [blockedRowId, setBlockedRowId] = useState<string | null>(null);
+  const inventory = useInventory();
+  const products = useProductsList();
+  const items = inventory.data ?? [];
+  const itemBySku = new Map(items.map((item) => [normalizeSku(item.sku), item]));
+  const uses = skuUses(products.data ?? []);
+
+  /** SKUs this row can link to: not sold by another product, nor by another row here. */
+  function skuOptions(row: VariantRow): InventoryItem[] {
+    const takenHere = new Set(rows.filter((r) => r.id !== row.id && r.sku).map((r) => normalizeSku(r.sku)));
+    return items
+      .filter((item) => !takenHere.has(normalizeSku(item.sku)) && !skuUsedElsewhere(uses, item.sku, productId))
+      .sort((a, b) => a.sku.localeCompare(b.sku, undefined, { numeric: true, sensitivity: "base" }));
+  }
+
+  /** Linking takes the piece's stock and, once it's priced, its weights — as the server does on save. */
+  function linkSku(row: VariantRow, sku: string) {
+    const item = itemBySku.get(normalizeSku(sku));
+    if (!item) {
+      updateRow(row.id, { sku: "" });
+      return;
+    }
+    updateRow(row.id, {
+      sku: item.sku,
+      inventory: Math.max(0, item.quantity),
+      ...(hasPricing(item)
+        ? { sameAsMainPrice: false, grossWeightGrams: item.weightGrams, netWeightGrams: item.netWeightGrams }
+        : {}),
+    });
+  }
   const [bulkAddOpen, setBulkAddOpen] = useState(false);
   const [bulkColor, setBulkColor] = useState("");
   const [bulkSizes, setBulkSizes] = useState<string[]>([]);
@@ -168,6 +208,9 @@ export function VariantsTable({
               defaultImagesColor !== null &&
               defaultImagesColor !== row.color.trim().toLowerCase();
             const ownImages = findVariantColorImageSet(colorImageSets, row.color)?.images ?? [];
+            const linked = row.sku ? itemBySku.get(normalizeSku(row.sku)) : undefined;
+            const linkedPrice = linked ? inventoryPrice(linked, pricing.ratePerGram) : null;
+            const skuTakenElsewhere = row.sku ? skuUsedElsewhere(uses, row.sku, productId) : undefined;
 
             return (
               <div
@@ -182,6 +225,36 @@ export function VariantsTable({
                 >
                   <X className="h-4 w-4" />
                 </button>
+
+                <div className="sm:col-span-12">
+                  <Label className="text-xs text-muted-foreground">Inventory SKU</Label>
+                  <Select value={row.sku || "__none"} onValueChange={(sku) => linkSku(row, sku === "__none" ? "" : sku)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pick the piece this variant sells" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">Not linked</SelectItem>
+                      {row.sku && !linked ? <SelectItem value={row.sku}>{row.sku} · not in Inventory</SelectItem> : null}
+                      {skuOptions(row).map((item) => (
+                        <SelectItem key={item.sku} value={item.sku}>
+                          {item.sku} · {formatGrams(item.weightGrams)} · qty {item.quantity}
+                          {hasPricing(item) ? "" : " · not priced"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {!row.sku ? (
+                    <p className="mt-1 text-[0.65rem] text-warning">
+                      Required. Each colour or size is its own piece — pick its Inventory SKU, and stock and price come
+                      from there.{" "}
+                      {skuOptions(row).length === 0 ? "No free SKUs: add the piece on the Inventory page first." : ""}
+                    </p>
+                  ) : skuTakenElsewhere ? (
+                    <p className="mt-1 text-[0.65rem] text-destructive">
+                      Also used by {describeSkuUse(skuTakenElsewhere)} — pick another SKU.
+                    </p>
+                  ) : null}
+                </div>
 
                 <div className={isRing ? "sm:col-span-3" : "sm:col-span-5"}>
                   <Label className="text-xs text-muted-foreground">Color</Label>
@@ -227,68 +300,93 @@ export function VariantsTable({
                   </div>
                 ) : null}
 
-                <div className="sm:col-span-3">
-                  <Label className="text-xs text-muted-foreground">Price</Label>
-                  <div className="flex h-9 items-center gap-2">
-                    <Switch
-                      checked={row.sameAsMainPrice}
-                      onCheckedChange={(checked) => updateRow(row.id, { sameAsMainPrice: checked })}
-                    />
-                    <span className="text-xs text-muted-foreground">Same as main</span>
+                {linked && hasPricing(linked) ? (
+                  <div className="sm:col-span-3">
+                    <Label className="text-xs text-muted-foreground">Price</Label>
+                    <p className="flex h-9 items-center text-sm font-medium text-foreground">
+                      {linkedPrice !== null ? `₹${linkedPrice.toLocaleString("en-IN")}` : "Set a Rate/gram"}
+                    </p>
+                    <p className="text-[0.65rem] text-muted-foreground">
+                      From {linked.sku} on Inventory · {formatGrams(linked.weightGrams)} gross,{" "}
+                      {formatGrams(linked.netWeightGrams)} net
+                    </p>
                   </div>
-                  {!row.sameAsMainPrice ? (
-                    <div className="mt-1.5 flex flex-col gap-1">
-                      {/* Gross weight is also what's written to Shopify as
-                          the `custom.variant_weight` metafield the
-                          storefront shows (see services/shopify.ts) — so a
-                          row only carries/displays a weight while it's also
-                          using a custom weight-based price. */}
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="Gross weight"
-                          value={row.grossWeightGrams || ""}
-                          onChange={(e) => updateRow(row.id, { grossWeightGrams: Number(e.target.value) || 0 })}
-                        />
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="Net weight"
-                          value={row.netWeightGrams || ""}
-                          onChange={(e) => updateRow(row.id, { netWeightGrams: Number(e.target.value) || 0 })}
-                        />
-                      </div>
-                      {row.grossWeightGrams > 0 && row.netWeightGrams > 0 ? (
-                        <span className="text-[0.65rem] text-muted-foreground">
-                          ₹
-                          {computeFinalPrice({
-                            grossWeightGrams: row.grossWeightGrams,
-                            netWeightGrams: row.netWeightGrams,
-                            ratePerGram: pricing.ratePerGram,
-                            makingChargeMode: pricing.makingChargeMode,
-                            makingChargeValue: pricing.makingChargeValue,
-                            stoneLineItems: pricing.stoneLineItems,
-                          }).toLocaleString("en-IN")}
-                        </span>
-                      ) : null}
+                ) : (
+                  <div className="sm:col-span-3">
+                    <Label className="text-xs text-muted-foreground">Price</Label>
+                    {linked ? (
+                      <p className="text-[0.65rem] text-warning">{linked.sku} isn&apos;t priced on Inventory yet.</p>
+                    ) : null}
+                    <div className="flex h-9 items-center gap-2">
+                      <Switch
+                        checked={row.sameAsMainPrice}
+                        onCheckedChange={(checked) => updateRow(row.id, { sameAsMainPrice: checked })}
+                      />
+                      <span className="text-xs text-muted-foreground">Same as main</span>
                     </div>
-                  ) : (
-                    <p className="mt-1.5 text-[0.65rem] text-muted-foreground">₹{mainPrice.toLocaleString("en-IN")}</p>
-                  )}
-                </div>
+                    {!row.sameAsMainPrice ? (
+                      <div className="mt-1.5 flex flex-col gap-1">
+                        {/* Gross weight is also what's written to Shopify as
+                            the `custom.variant_weight` metafield the
+                            storefront shows (see services/shopify.ts) — so a
+                            row only carries/displays a weight while it's also
+                            using a custom weight-based price. */}
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="Gross weight"
+                            value={row.grossWeightGrams || ""}
+                            onChange={(e) => updateRow(row.id, { grossWeightGrams: Number(e.target.value) || 0 })}
+                          />
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="Net weight"
+                            value={row.netWeightGrams || ""}
+                            onChange={(e) => updateRow(row.id, { netWeightGrams: Number(e.target.value) || 0 })}
+                          />
+                        </div>
+                        {row.grossWeightGrams > 0 && row.netWeightGrams > 0 ? (
+                          <span className="text-[0.65rem] text-muted-foreground">
+                            ₹
+                            {computeFinalPrice({
+                              grossWeightGrams: row.grossWeightGrams,
+                              netWeightGrams: row.netWeightGrams,
+                              ratePerGram: pricing.ratePerGram,
+                              makingChargeMode: pricing.makingChargeMode,
+                              makingChargeValue: pricing.makingChargeValue,
+                              stoneLineItems: pricing.stoneLineItems,
+                            }).toLocaleString("en-IN")}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p className="mt-1.5 text-[0.65rem] text-muted-foreground">₹{mainPrice.toLocaleString("en-IN")}</p>
+                    )}
+                  </div>
+                )}
 
                 <div className="sm:col-span-2">
                   <Label className="text-xs text-muted-foreground">Stock</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={row.inventory || ""}
-                    onChange={(e) => updateRow(row.id, { inventory: Number(e.target.value) || 0 })}
-                  />
+                  {linked ? (
+                    <>
+                      <p className="flex h-9 items-center text-sm font-medium text-foreground">
+                        {Math.max(0, linked.quantity)}
+                      </p>
+                      <p className="text-[0.65rem] text-muted-foreground">From Inventory</p>
+                    </>
+                  ) : (
+                    <Input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={row.inventory || ""}
+                      onChange={(e) => updateRow(row.id, { inventory: Number(e.target.value) || 0 })}
+                    />
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5 sm:col-span-2">

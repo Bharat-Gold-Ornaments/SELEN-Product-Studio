@@ -12,9 +12,10 @@ import {
 import { FormField } from "@/components/form-field";
 import { useInventory } from "@/hooks/use-inventory";
 import { useProductsList } from "@/hooks/use-products-list";
-import { INVENTORY_CATEGORIES } from "@/lib/constants";
+import { INVENTORY_CATEGORIES, PRODUCT_TYPE_INVENTORY_CATEGORY } from "@/lib/constants";
 import { formatGrams } from "@/lib/utils";
 import { sameSku } from "@/lib/sku";
+import { skuUses } from "@/lib/product-skus";
 import type { InventoryCategory, InventoryItem } from "@/types/inventory";
 import type { ProductType } from "@/types/product";
 
@@ -23,14 +24,6 @@ const CATEGORY_LABEL = Object.fromEntries(INVENTORY_CATEGORIES.map((c) => [c.val
   string
 >;
 
-/** The Inventory category a Studio product type corresponds to, used only to list matching SKUs first. */
-const MATCHING_CATEGORY: Record<ProductType, InventoryCategory | null> = {
-  earrings: "earrings",
-  ring: "ring",
-  pendant: "pendant",
-  necklace: "chain",
-  bracelet: null,
-};
 
 interface InventorySkuFieldProps {
   productType: ProductType;
@@ -48,8 +41,10 @@ export function InventorySkuField({ productType, value, onSelect, error }: Inven
   const inventory = useInventory();
   const products = useProductsList();
 
-  const usedSkus = (products.data ?? []).map((p) => p.sku).filter(Boolean);
-  const matching = MATCHING_CATEGORY[productType];
+  // Taken by a product or by one of its variants.
+  const usedSkus = [...skuUses(products.data ?? []).keys()];
+  // Only used to list matching SKUs first.
+  const matching = PRODUCT_TYPE_INVENTORY_CATEGORY[productType];
   const available = (inventory.data ?? [])
     .filter((item) => !usedSkus.some((sku) => sameSku(sku, item.sku)))
     .sort((a, b) => {

@@ -635,6 +635,8 @@ export interface ShopifyVariantInput {
   useDefaultImages: boolean;
   /** 0 = not entered — written to Shopify as the `custom.variant_weight` variant metafield when positive (see buildVariantsInput), so the storefront can show each size's own weight instead of one product-wide number. Purely informational — never affects price unless the caller already folded it into `price` above via resolveVariantPrice. */
   grossWeightGrams: number;
+  /** The variant's Inventory SKU, written to Shopify so stock and orders match by it. "" leaves Shopify's SKU as it is. */
+  sku: string;
 }
 
 export interface CreateShopifyProductInput {
@@ -658,6 +660,8 @@ export interface CreateShopifyProductInput {
   collections?: string[];
   /** Empty array = today's single "Default Title" variant (see buildVariantsInput) — every product that doesn't use this feature is completely unaffected. */
   variants: ShopifyVariantInput[];
+  /** The product's Inventory SKU — set on the single default variant when there are no `variants`. */
+  sku?: string;
 }
 
 export interface PublishProductInput extends CreateShopifyProductInput {
@@ -754,7 +758,8 @@ function buildVariantsInput(
   baseInventory: number,
   variants: ShopifyVariantInput[],
   locationId: string,
-  existingVariantIdByKey?: Map<string, string>
+  existingVariantIdByKey?: Map<string, string>,
+  baseSku = ""
 ): {
   productOptions: { name: string; values: { name: string }[]; linkedMetafield: null }[];
   variants: Record<string, unknown>[];
@@ -775,6 +780,7 @@ function buildVariantsInput(
           price: basePrice,
           inventoryQuantities: [{ locationId, name: "available", quantity: baseInventory }],
           optionValues: [{ optionName: "Title", name: "Default Title" }],
+          ...(baseSku.trim() ? { sku: baseSku.trim() } : {}),
         },
       ],
     };
@@ -828,6 +834,7 @@ function buildVariantsInput(
       price: variant.price,
       inventoryQuantities: [{ locationId, name: "available", quantity: variant.inventory }],
       optionValues,
+      ...(variant.sku.trim() ? { sku: variant.sku.trim() } : {}),
       // `custom.variant_weight` — a plain-text, per-variant metafield (its
       // definition already exists on the store, so `type` is omitted here,
       // same convention buildMetafields uses for the product-level fields)
@@ -1143,7 +1150,9 @@ async function createShopifyProduct(input: CreateShopifyProductInput): Promise<s
     input.price,
     input.inventory,
     input.variants,
-    locationId
+    locationId,
+    undefined,
+    input.sku
   );
 
   const data = await shopifyGraphQL<{
@@ -1429,12 +1438,18 @@ export interface UpdateShopifyInventoryInput {
  * updateShopifyProductPrice.
  */
 export async function updateShopifyProductInventory(input: UpdateShopifyInventoryInput): Promise<void> {
-  const productGid = productGidFromNumericId(input.shopifyProductId);
-  const [inventoryItemId, locationId] = await Promise.all([
-    getDefaultVariantInventoryItemId(productGid),
-    getPrimaryLocationId(),
-  ]);
+  const inventoryItemId = await getDefaultVariantInventoryItemId(productGidFromNumericId(input.shopifyProductId));
+  await setShopifyVariantStock(inventoryItemId, input.inventory);
+}
 
+/**
+ * Sets one variant's "available" stock to exactly `quantity`. Only for a
+ * one-off alignment (Finalize's plain Inventory field, linking a product to
+ * Inventory) — day-to-day changes use adjustShopifyStock's delta so a
+ * concurrent order isn't overwritten.
+ */
+export async function setShopifyVariantStock(inventoryItemId: string, quantity: number): Promise<void> {
+  const locationId = await getPrimaryLocationId();
   const data = await shopifyGraphQL<{
     inventorySetQuantities: { userErrors: { field?: string[] | null; message: string }[] };
   }>(
@@ -1447,9 +1462,7 @@ export async function updateShopifyProductInventory(input: UpdateShopifyInventor
       input: {
         name: "available",
         reason: "correction",
-        quantities: [
-          { inventoryItemId, locationId, quantity: input.inventory, changeFromQuantity: null },
-        ],
+        quantities: [{ inventoryItemId, locationId, quantity, changeFromQuantity: null }],
       },
       idempotencyKey: randomUUID(),
     }
@@ -1465,6 +1478,8 @@ export async function updateShopifyProductInventory(input: UpdateShopifyInventor
 export interface ShopifyStockVariant {
   /** Numeric product id. */
   shopifyProductId: string;
+  /** Variant gid. */
+  variantId: string;
   inventoryItemId: string;
   /** "" when the variant has no SKU. */
   sku: string;
@@ -1476,6 +1491,7 @@ export interface ShopifyStockVariant {
 }
 
 interface StockVariantNode {
+  id: string;
   sku: string | null;
   inventoryQuantity: number | null;
   selectedOptions: { name: string; value: string }[];
@@ -1485,6 +1501,7 @@ interface StockVariantNode {
 function toStockVariant(productGid: string, node: StockVariantNode): ShopifyStockVariant {
   return {
     shopifyProductId: numericIdFromGid(productGid),
+    variantId: node.id,
     inventoryItemId: node.inventoryItem.id,
     sku: node.sku ?? "",
     quantity: node.inventoryQuantity ?? 0,
@@ -1504,6 +1521,7 @@ export async function findShopifyVariantsBySku(sku: string): Promise<ShopifyStoc
     `query findVariantsBySku($query: String!) {
       productVariants(first: 10, query: $query) {
         nodes {
+          id
           sku
           inventoryQuantity
           selectedOptions { name value }
@@ -1527,6 +1545,7 @@ export async function getShopifyProductStockVariants(shopifyProductId: string): 
         id
         variants(first: 100) {
           nodes {
+            id
             sku
             inventoryQuantity
             selectedOptions { name value }
@@ -1540,6 +1559,24 @@ export async function getShopifyProductStockVariants(shopifyProductId: string): 
   if (!data.product) return null;
   const productGid = data.product.id;
   return data.product.variants.nodes.map((node) => toStockVariant(productGid, node));
+}
+
+/** Writes an Inventory SKU onto an existing Shopify variant, so stock and orders match by it. */
+export async function setShopifyVariantSku(shopifyProductId: string, variantId: string, sku: string): Promise<void> {
+  const data = await shopifyGraphQL<{
+    productVariantsBulkUpdate: { userErrors: { field?: string[] | null; message: string }[] };
+  }>(
+    `mutation setVariantSku($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+      productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+        userErrors { field message }
+      }
+    }`,
+    {
+      productId: productGidFromNumericId(shopifyProductId),
+      variants: [{ id: variantId, inventoryItem: { sku } }],
+    }
+  );
+  assertNoUserErrors(data.productVariantsBulkUpdate.userErrors, "productVariantsBulkUpdate (SKU)");
 }
 
 export interface AdjustShopifyStockInput {
@@ -1611,6 +1648,9 @@ export interface ShopifyOrderLine {
   shopifyProductId: string | null;
   productTitle: string;
   productVariantCount: number;
+  /** The variant's Color and Size option values; "" when it has none. */
+  color: string;
+  size: string;
   /** Pieces Shopify put back in stock through refunds or cancellation. */
   restockedQuantity: number;
 }
@@ -1635,6 +1675,7 @@ export async function listShopifyOrdersForStock(
     variant: {
       id: string;
       sku: string | null;
+      selectedOptions: { name: string; value: string }[];
       product: { id: string; title: string; variantsCount: { count: number } | null };
     } | null;
   };
@@ -1673,6 +1714,7 @@ export async function listShopifyOrdersForStock(
                 variant {
                   id
                   sku
+                  selectedOptions { name value }
                   product { id title variantsCount { count } }
                 }
               }
@@ -1711,6 +1753,8 @@ export async function listShopifyOrdersForStock(
           shopifyProductId: line.variant ? numericIdFromGid(line.variant.product.id) : null,
           productTitle: line.variant?.product.title ?? line.name,
           productVariantCount: line.variant?.product.variantsCount?.count ?? 0,
+          color: line.variant?.selectedOptions.find((o) => o.name === "Color")?.value ?? "",
+          size: line.variant?.selectedOptions.find((o) => o.name === "Size")?.value ?? "",
           restockedQuantity: restocked.get(line.id) ?? 0,
         })),
       });

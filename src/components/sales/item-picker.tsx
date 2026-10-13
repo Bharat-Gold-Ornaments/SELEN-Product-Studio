@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import { ImageOff, Search } from "lucide-react";
+import { ChevronDown, ChevronUp, ImageOff, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { INVENTORY_CATEGORIES } from "@/lib/constants";
@@ -12,12 +12,20 @@ import { cn, formatGrams } from "@/lib/utils";
 import type { InventoryCategory, InventoryItem } from "@/types/inventory";
 
 const PAGE_SIZE = 48;
+/** How many matches compact mode shows. */
+const COMPACT_LIMIT = 8;
 
 interface ItemPickerProps {
   items: InventoryItem[];
   onPick: (item: InventoryItem) => void;
   /** Quantity already picked per SKU, shown as a badge on the tile. */
   picked?: Map<string, number>;
+  /**
+   * For tight spaces (Inventory's Add stock): nothing shows until a SKU or
+   * weight is typed, then only the closest COMPACT_LIMIT matches; on phones the
+   * photo grid starts collapsed behind a "Show matches" toggle.
+   */
+  compact?: boolean;
 }
 
 /**
@@ -25,14 +33,17 @@ interface ItemPickerProps {
  * weight ("3.2" lists the pieces closest to 3.2 g first). Staff often have
  * the piece in hand and can weigh it, which beats remembering its SKU.
  */
-export function ItemPicker({ items, onPick, picked }: ItemPickerProps) {
+export function ItemPicker({ items, onPick, picked, compact = false }: ItemPickerProps) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<InventoryCategory | "all">("all");
   const [limit, setLimit] = useState(PAGE_SIZE);
+  // Phones only (compact mode): the grid is hidden until expanded; sm and up always show it.
+  const [expandedOnMobile, setExpandedOnMobile] = useState(false);
 
   const results = useMemo(() => searchItems(items, query, category), [items, query, category]);
-  const visible = results.slice(0, limit);
+  const visible = results.slice(0, compact ? COMPACT_LIMIT : limit);
   const weight = parseWeightQuery(query);
+  const waitingForQuery = compact && !query.trim();
 
   return (
     <div className="flex flex-col gap-3">
@@ -67,18 +78,43 @@ export function ItemPicker({ items, onPick, picked }: ItemPickerProps) {
         ))}
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        {weight !== null
-          ? `${results.length} piece${results.length === 1 ? "" : "s"} near ${formatGrams(weight)}, closest first`
-          : `${results.length} piece${results.length === 1 ? "" : "s"}`}
-      </p>
+      {waitingForQuery ? (
+        <p className="text-xs text-muted-foreground">Type a SKU or weight to see the closest matches.</p>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground">
+            {weight !== null
+              ? `${results.length} piece${results.length === 1 ? "" : "s"} near ${formatGrams(weight)}, closest first`
+              : `${results.length} piece${results.length === 1 ? "" : "s"}`}
+            {compact && results.length > visible.length ? ` — showing the closest ${visible.length}` : ""}
+          </p>
+          {compact && results.length > 0 ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="sm:hidden"
+              onClick={() => setExpandedOnMobile((v) => !v)}
+              aria-expanded={expandedOnMobile}
+            >
+              {expandedOnMobile ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              {expandedOnMobile ? "Hide matches" : `Show ${visible.length} match${visible.length === 1 ? "" : "es"}`}
+            </Button>
+          ) : null}
+        </div>
+      )}
 
-      {results.length === 0 ? (
+      {waitingForQuery ? null : results.length === 0 ? (
         <div className="flex items-center justify-center rounded-xl border border-dashed border-border py-10 text-sm text-muted-foreground">
           Nothing matches.
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+        <div
+          className={cn(
+            "grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4",
+            compact && !expandedOnMobile ? "hidden sm:grid" : "grid"
+          )}
+        >
           {visible.map((item) => {
             const count = picked?.get(normalizeSku(item.sku)) ?? 0;
             return (
@@ -116,7 +152,7 @@ export function ItemPicker({ items, onPick, picked }: ItemPickerProps) {
         </div>
       )}
 
-      {results.length > visible.length ? (
+      {!compact && results.length > visible.length ? (
         <Button type="button" variant="outline" className="self-center" onClick={() => setLimit((n) => n + PAGE_SIZE)}>
           Show more ({results.length - visible.length} left)
         </Button>

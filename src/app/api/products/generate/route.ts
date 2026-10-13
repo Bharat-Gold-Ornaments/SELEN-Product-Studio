@@ -6,7 +6,8 @@ import { buildDraftProductRecord } from "@/lib/product-record";
 import { PRODUCT_TYPES } from "@/lib/constants";
 import { runInitialGeneration, type OriginalPhoto } from "@/services/product-generation";
 import { appendProductRow, listInventoryItems, listProducts, updateProductRow } from "@/services/google-sheets";
-import { sameSku } from "@/lib/sku";
+import { normalizeSku, sameSku } from "@/lib/sku";
+import { describeSkuUse, skuUses } from "@/lib/product-skus";
 import { pricingFromInventory } from "@/services/inventory-pricing";
 import type { InventoryItem } from "@/types/inventory";
 import { downloadFile, markPoolPhotoUsed } from "@/services/google-drive";
@@ -88,10 +89,11 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    const existing = products.find((product) => product.sku && sameSku(product.sku, values.sku));
+    // Products and their variants: each SKU sells through one listing only.
+    const existing = skuUses(products).get(normalizeSku(values.sku))?.[0];
     if (existing) {
       return NextResponse.json(
-        { error: `SKU "${inventoryItem.sku}" is already used by ${existing.title} (${existing.productId}).` },
+        { error: `SKU "${inventoryItem.sku}" is already used by ${describeSkuUse(existing)} (${existing.productId}).` },
         { status: 409 }
       );
     }

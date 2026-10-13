@@ -31,5 +31,10 @@ export function searchItems(items: InventoryItem[], query: string, category: Inv
       .sort((a, b) => Math.abs(a.weightGrams - weight) - Math.abs(b.weightGrams - weight));
   }
   const needle = normalizeSku(query);
-  return inCategory.filter((item) => !needle || normalizeSku(item.sku).includes(needle)).sort(bySku);
+  if (!needle) return [...inCategory].sort(bySku);
+  // Closest first: exact SKU, then SKUs starting with the query, then ones containing it.
+  const rank = (sku: string) => (sku === needle ? 0 : sku.startsWith(needle) ? 1 : 2);
+  return inCategory
+    .filter((item) => normalizeSku(item.sku).includes(needle))
+    .sort((a, b) => rank(normalizeSku(a.sku)) - rank(normalizeSku(b.sku)) || bySku(a, b));
 }

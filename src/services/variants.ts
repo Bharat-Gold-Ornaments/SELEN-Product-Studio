@@ -1,6 +1,6 @@
 import "server-only";
-import { findProduct, updateProductRow } from "@/services/google-sheets";
-import { syncShopifyProductVariants } from "@/services/shopify";
+import { findProduct, listInventoryItems, listProducts, updateProductRow } from "@/services/google-sheets";
+import { syncShopifyProductVariants, type ShopifyVariantInput } from "@/services/shopify";
 import { readAppSettings } from "@/services/app-settings";
 import { loadPickedShopifyImages, loadVariantColorShopifyImages } from "@/lib/shopify-listing";
 import {
@@ -13,6 +13,10 @@ import {
 import { generateVariantColorImages } from "@/services/product-generation";
 import { buildImagePromptVariablesFromRecord } from "@/lib/generation-variables";
 import { parseStoneLineItems } from "@/lib/pricing";
+import { hasPricing, inventoryPrice } from "@/lib/inventory-pricing";
+import { describeSkuUse, skuUsedElsewhere, skuUses } from "@/lib/product-skus";
+import { normalizeSku } from "@/lib/sku";
+import type { InventoryItem } from "@/types/inventory";
 import {
   parseVariantRows,
   serializeVariantRows,
@@ -39,6 +43,55 @@ async function variantPricingContext(record: ProductRecord): Promise<VariantPric
     makingChargeValue: record.makingChargeValue,
     stoneLineItems: parseStoneLineItems(record.stoneLineItems),
   };
+}
+
+/**
+ * Rows linked to an Inventory SKU take that piece's stock and, once it's
+ * priced, its weights — Inventory is where those live. Unlinked rows are
+ * returned as they are.
+ */
+export function applyInventoryToVariantRows(rows: VariantRow[], inventory: InventoryItem[]): VariantRow[] {
+  const bySku = new Map(inventory.map((item) => [normalizeSku(item.sku), item]));
+  return rows.map((row) => {
+    const item = row.sku ? bySku.get(normalizeSku(row.sku)) : undefined;
+    if (!item) return row;
+    return {
+      ...row,
+      sku: item.sku,
+      inventory: Math.max(0, item.quantity),
+      ...(hasPricing(item)
+        ? { sameAsMainPrice: false, grossWeightGrams: item.weightGrams, netWeightGrams: item.netWeightGrams }
+        : {}),
+    };
+  });
+}
+
+/**
+ * The variants as Shopify input. A row linked to a priced Inventory SKU
+ * sells at that SKU's price (its own weights, making charge, stones or
+ * manual price); any other row resolves as before — the main price, or a
+ * custom weight priced with the product's making charge and stones.
+ */
+export async function shopifyVariantsFor(
+  record: ProductRecord,
+  rows: VariantRow[],
+  mainPrice: number
+): Promise<ShopifyVariantInput[]> {
+  const [pricing, inventory] = await Promise.all([variantPricingContext(record), listInventoryItems()]);
+  const bySku = new Map(inventory.map((item) => [normalizeSku(item.sku), item]));
+  return rows.map((row) => {
+    const item = row.sku ? bySku.get(normalizeSku(row.sku)) : undefined;
+    const linkedPrice = item ? inventoryPrice(item, pricing.ratePerGram) : null;
+    return {
+      color: row.color,
+      size: row.size,
+      price: linkedPrice ?? resolveVariantPrice(row, mainPrice, pricing),
+      inventory: row.inventory,
+      useDefaultImages: row.useDefaultImages,
+      grossWeightGrams: row.grossWeightGrams,
+      sku: row.sku,
+    };
+  });
 }
 
 export interface SaveProductVariantsResult {
@@ -69,13 +122,26 @@ async function loadAllShopifyImagesForVariants(record: ProductRecord, rows: Vari
  * removed) is allowed and always succeeds locally, but is never pushed to
  * Shopify — see syncShopifyProductVariants's own doc comment for why.
  */
-export async function saveProductVariants(productId: string, rows: VariantRow[]): Promise<SaveProductVariantsResult> {
-  const validationError = validateVariantRows(rows);
-  if (validationError) throw new Error(validationError);
-
+export async function saveProductVariants(productId: string, input: VariantRow[]): Promise<SaveProductVariantsResult> {
   const lookup = await findProduct(productId);
   if (!lookup) throw new Error("Product not found.");
   const { record } = lookup;
+
+  // Each variant's SKU must be an Inventory piece not sold through another product.
+  const [inventory, products] = await Promise.all([listInventoryItems(), listProducts()]);
+  const uses = skuUses(products);
+  for (const row of input) {
+    if (!row.sku) continue;
+    if (!inventory.some((item) => normalizeSku(item.sku) === normalizeSku(row.sku))) {
+      throw new Error(`SKU ${row.sku} isn't in Inventory.`);
+    }
+    const elsewhere = skuUsedElsewhere(uses, row.sku, productId);
+    if (elsewhere) throw new Error(`SKU ${row.sku} is already used by ${describeSkuUse(elsewhere)}.`);
+  }
+  const rows = applyInventoryToVariantRows(input, inventory);
+
+  const validationError = validateVariantRows(rows);
+  if (validationError) throw new Error(validationError);
 
   let variantsSyncStatus = record.variantsSyncStatus;
   let variantsSyncedAt = record.variantsSyncedAt;
@@ -88,23 +154,16 @@ export async function saveProductVariants(productId: string, rows: VariantRow[])
     variantsSyncedAt = "";
   } else if (record.shopifyProductId) {
     try {
-      const [images, pricing] = await Promise.all([
+      const [images, variants] = await Promise.all([
         loadAllShopifyImagesForVariants(record, rows),
-        variantPricingContext(record),
+        shopifyVariantsFor(record, rows, record.price),
       ]);
       await syncShopifyProductVariants({
         shopifyProductId: record.shopifyProductId,
         price: record.price,
         inventory: record.inventory,
         images,
-        variants: rows.map((row) => ({
-          color: row.color,
-          size: row.size,
-          price: resolveVariantPrice(row, record.price, pricing),
-          inventory: row.inventory,
-          useDefaultImages: row.useDefaultImages,
-          grossWeightGrams: row.grossWeightGrams,
-        })),
+        variants,
       });
       variantsSyncStatus = "synced";
       variantsSyncedAt = new Date().toISOString();
@@ -116,6 +175,8 @@ export async function saveProductVariants(productId: string, rows: VariantRow[])
 
   await updateProductRow(productId, {
     variants: serializeVariantRows(rows),
+    // The product's stock is its variants' stock combined, as on Finalize.
+    ...(rows.length > 0 ? { inventory: rows.reduce((sum, row) => sum + row.inventory, 0) } : {}),
     variantsSyncStatus,
     variantsSyncedAt,
   });
@@ -137,28 +198,22 @@ export async function retryVariantsSync(productId: string): Promise<SaveProductV
   if (!record.shopifyProductId) {
     throw new Error("This product hasn't been published to Shopify yet.");
   }
-  const rows = parseVariantRows(record.variants);
+  // Linked rows are refreshed from Inventory, which may have changed since they were saved.
+  const rows = applyInventoryToVariantRows(parseVariantRows(record.variants), await listInventoryItems());
   if (rows.length === 0) {
     throw new Error("No saved variants to sync.");
   }
 
-  const [images, pricing] = await Promise.all([
+  const [images, variants] = await Promise.all([
     loadAllShopifyImagesForVariants(record, rows),
-    variantPricingContext(record),
+    shopifyVariantsFor(record, rows, record.price),
   ]);
   await syncShopifyProductVariants({
     shopifyProductId: record.shopifyProductId,
     price: record.price,
     inventory: record.inventory,
     images,
-    variants: rows.map((row) => ({
-      color: row.color,
-      size: row.size,
-      price: resolveVariantPrice(row, record.price, pricing),
-      inventory: row.inventory,
-      useDefaultImages: row.useDefaultImages,
-      grossWeightGrams: row.grossWeightGrams,
-    })),
+    variants,
   });
 
   const variantsSyncedAt = new Date().toISOString();

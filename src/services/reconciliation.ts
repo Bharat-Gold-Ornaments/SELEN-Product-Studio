@@ -7,6 +7,7 @@ import {
   type ShopifyReconciliationVariant,
 } from "@/services/shopify";
 import { normalizeSku } from "@/lib/sku";
+import { productSkuUses } from "@/lib/product-skus";
 import { parseVariantRows, totalVariantInventory } from "@/lib/variants";
 import type { ProductRecord } from "@/types/product";
 import type { ReconciliationIssue, ReconciliationReport, ReconciliationRule } from "@/types/reconciliation";
@@ -83,7 +84,9 @@ export async function runReconciliation(): Promise<ReconciliationReport> {
   /** Active Shopify product IDs that the Products tab links to an Inventory SKU. */
   const productsTabSkuLinks = new Map<string, string>();
   for (const record of productsWithShopifyId) {
-    if (record.sku) productsTabSkuLinks.set(normalizeSku(record.sku), record.shopifyProductId!.trim());
+    for (const { sku } of productSkuUses(record)) {
+      productsTabSkuLinks.set(normalizeSku(sku), record.shopifyProductId!.trim());
+    }
   }
 
   // ── Shopify products vs. both tabs ────────────────────────────────────
@@ -102,7 +105,9 @@ export async function runReconciliation(): Promise<ReconciliationReport> {
       inventory.some((item) => item.shopifyProductId.trim() === id) ||
       variantSkus.some((sku) => inventorySkus.has(sku)) ||
       productsWithShopifyId.some(
-        (record) => record.shopifyProductId!.trim() === id && record.sku && inventorySkus.has(normalizeSku(record.sku))
+        (record) =>
+          record.shopifyProductId!.trim() === id &&
+          productSkuUses(record).some(({ sku }) => inventorySkus.has(normalizeSku(sku)))
       );
     if (!linkedToInventory) {
       raise("shopify_missing_from_inventory", id, {
@@ -161,22 +166,26 @@ export async function runReconciliation(): Promise<ReconciliationReport> {
       });
     }
 
-    if (record.sku) {
-      const sku = normalizeSku(record.sku);
+    // Every SKU the product sells: its own, or one per variant.
+    for (const { sku: recordSku, use } of productSkuUses(record)) {
+      const sku = normalizeSku(recordSku);
+      const where = use.variant ? `The ${use.variant} variant is` : "Created";
       if (!inventorySkus.has(sku)) {
-        raise("product_sku_not_in_inventory", record.productId, {
+        raise("product_sku_not_in_inventory", `${record.productId}|${sku}`, {
           ...productFields,
           ...shopifyFields(shopifyProduct),
-          sku: record.sku,
-          message: `Created from SKU ${record.sku}, which is no longer in Inventory.`,
+          sku: recordSku,
+          message: `${where} from SKU ${recordSku}, which is no longer in Inventory.`,
         });
       }
       if (!shopifyProduct.variants.some((v) => v.sku.trim() && normalizeSku(v.sku) === sku)) {
         raise("sku_not_on_shopify_product", `${id}|${sku}`, {
           ...productFields,
           ...shopifyFields(shopifyProduct),
-          sku: record.sku,
-          message: `No variant of this product has SKU ${record.sku}.`,
+          sku: recordSku,
+          message: use.variant
+            ? `The ${use.variant} variant on Shopify doesn't have SKU ${recordSku} yet — save the variants on Finalize to send it.`
+            : `No variant of this product has SKU ${recordSku}.`,
         });
       }
     }

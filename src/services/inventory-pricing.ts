@@ -2,6 +2,9 @@ import "server-only";
 import { listInventoryItems, listProducts } from "@/services/google-sheets";
 import { readAppSettings } from "@/services/app-settings";
 import { saveProductPricing } from "@/services/pricing";
+import { saveProductVariants } from "@/services/variants";
+import { parseVariantRows } from "@/lib/variants";
+import { variantLabel } from "@/lib/product-skus";
 import { hasPricing, inventoryPrice, pricingOf, type LinkedProductPriceResult } from "@/lib/inventory-pricing";
 import { sameSku } from "@/lib/sku";
 import type { InventoryItem } from "@/types/inventory";
@@ -10,8 +13,8 @@ import type { ProductRecord } from "@/types/product";
 export type { LinkedProductPriceResult };
 
 /**
- * Copies an Inventory SKU's pricing to every Studio product created from it
- * and pushes each new price to Shopify (through saveProductPricing, the
+ * Copies an Inventory SKU's pricing to every Studio product created from it,
+ * and to every product variant sold as it, and pushes each new price to Shopify (through saveProductPricing, the
  * same path as Finalize's Save Pricing). This is what keeps Inventory, the
  * Products tab and Shopify on one price. Per product, a failure is reported
  * rather than thrown — the Inventory save itself already succeeded.
@@ -64,6 +67,34 @@ export async function applyInventoryPricingToProducts(
         price: null,
         priceSyncStatus: product.priceSyncStatus,
         error: error instanceof Error ? error.message : "Couldn't save pricing.",
+      });
+    }
+  }
+
+  // Variants sold as this SKU: re-saving the variants re-reads the SKU's
+  // weights and price from Inventory and pushes them to Shopify.
+  for (const product of products) {
+    if (product.productId === options.exceptProductId) continue;
+    const rows = parseVariantRows(product.variants);
+    const row = rows.find((r) => r.sku && sameSku(r.sku, item.sku));
+    if (!row) continue;
+    const title = `${product.title} (${variantLabel(row)})`;
+    try {
+      const result = await saveProductVariants(product.productId, rows);
+      results.push({
+        productId: product.productId,
+        title,
+        price: inventoryPrice(item, settings.ratePerGram),
+        priceSyncStatus: result.variantsSyncStatus,
+      });
+    } catch (error) {
+      console.error(`Couldn't apply ${item.sku}'s pricing to a variant of product ${product.productId}`, error);
+      results.push({
+        productId: product.productId,
+        title,
+        price: null,
+        priceSyncStatus: product.variantsSyncStatus,
+        error: error instanceof Error ? error.message : "Couldn't save the variant.",
       });
     }
   }

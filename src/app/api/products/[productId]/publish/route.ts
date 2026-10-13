@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { findProduct, updateProductRow } from "@/services/google-sheets";
+import { findProduct, listInventoryItems, updateProductRow } from "@/services/google-sheets";
+import { applyInventoryToVariantRows, shopifyVariantsFor } from "@/services/variants";
 import { publishProductToShopify } from "@/services/shopify";
-import { readAppSettings } from "@/services/app-settings";
 import { PRODUCT_TYPES } from "@/lib/constants";
+import { sameSku } from "@/lib/sku";
 import { descriptionToHtml, loadPickedShopifyImages, loadVariantColorShopifyImages } from "@/lib/shopify-listing";
-import { parseVariantRows, resolveVariantPrice, parseVariantColorImages, colorsNeedingGeneratedImages } from "@/lib/variants";
-import { parseStoneLineItems } from "@/lib/pricing";
+import { parseVariantRows, parseVariantColorImages, colorsNeedingGeneratedImages } from "@/lib/variants";
 
 export const maxDuration = 90;
 
@@ -33,7 +33,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid request body." }, { status: 400 });
   }
-  const { price, inventory } = parsed.data;
+  const { price } = parsed.data;
+  let { inventory } = parsed.data;
 
   const lookup = await findProduct(productId).catch(() => null);
   if (!lookup) {
@@ -59,6 +60,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
     );
   }
 
+  // Inventory is where physical stock lives: a product linked to an
+  // Inventory SKU publishes that piece's quantity.
+  if (record.sku && parseVariantRows(record.variants).length === 0) {
+    const item = (await listInventoryItems().catch(() => [])).find((i) => sameSku(i.sku, record.sku));
+    if (item) inventory = Math.max(0, item.quantity);
+  }
+
   // Persist the finalized price/inventory and flip to "publishing" before
   // doing any Shopify work — if this fails there's no point continuing
   // (nowhere to record the outcome), so it's the one step allowed to bail
@@ -81,22 +89,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
     // resolve against this request's `price` so they can never go stale
     // relative to whatever price is actually being sent; a custom-weight row
     // is recomputed fresh with the current global rate.
-    const variantRows = parseVariantRows(record.variants);
-    const settings = await readAppSettings();
-    const pricing = {
-      ratePerGram: settings.ratePerGram,
-      makingChargeMode: record.makingChargeMode,
-      makingChargeValue: record.makingChargeValue,
-      stoneLineItems: parseStoneLineItems(record.stoneLineItems),
-    };
-    const variants = variantRows.map((row) => ({
-      color: row.color,
-      size: row.size,
-      price: resolveVariantPrice(row, price, pricing),
-      inventory: row.inventory,
-      useDefaultImages: row.useDefaultImages,
-      grossWeightGrams: row.grossWeightGrams,
-    }));
+    // A variant linked to an Inventory SKU takes that piece's stock and price.
+    const variantRows = applyInventoryToVariantRows(parseVariantRows(record.variants), await listInventoryItems());
+    const variants = await shopifyVariantsFor(record, variantRows, price);
 
     const [baseImages, colorImages] = await Promise.all([
       loadPickedShopifyImages(record),
@@ -116,6 +111,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
       inventory,
       images,
       variants,
+      sku: record.sku,
       seoTitle: record.seoTitle || record.title,
       metaDescription: record.metaDescription,
       weightGrams: record.weightGrams,

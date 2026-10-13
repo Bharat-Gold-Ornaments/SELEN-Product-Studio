@@ -16,6 +16,7 @@ const variantRowSchema = z.object({
   netWeightGrams: z.number().nonnegative(),
   inventory: z.number().int().nonnegative(),
   useDefaultImages: z.boolean(),
+  sku: z.string().default(""),
 });
 
 const patchSchema = z.object({

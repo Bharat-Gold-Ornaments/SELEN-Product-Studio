@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AddStockCard } from "@/components/inventory/add-stock-card";
 import { DuplicatesPanel } from "@/components/inventory/duplicates-panel";
+import { LinkingPanel } from "@/components/inventory/linking-panel";
 import { EditInventoryDialog } from "@/components/inventory/edit-inventory-dialog";
 import { InventoryOverview } from "@/components/inventory/inventory-overview";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -79,6 +80,7 @@ export function InventoryClient() {
           <TabsTrigger value="stock">Stock</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="duplicates">Duplicates</TabsTrigger>
+          <TabsTrigger value="linking">Linking</TabsTrigger>
         </TabsList>
 
         <TabsContent value="stock" className="mt-0 flex flex-col gap-6">
@@ -230,6 +232,9 @@ export function InventoryClient() {
           ) : (
             <DuplicatesPanel items={items ?? []} soldOf={soldOf} />
           )}
+        </TabsContent>
+        <TabsContent value="linking" className="mt-0">
+          {isLoading ? <Skeleton className="h-[360px] rounded-2xl" /> : <LinkingPanel items={items ?? []} />}
         </TabsContent>
       </Tabs>
 

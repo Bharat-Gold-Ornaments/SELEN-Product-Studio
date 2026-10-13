@@ -21,6 +21,13 @@ export interface VariantRow {
   /** Only meaningful when sameAsMainPrice is false. */
   netWeightGrams: number;
   inventory: number;
+  /**
+   * The Inventory SKU of the physical piece this variant sells — each Color/
+   * Size is its own piece with its own stock, weight and price. "" = not
+   * linked yet. A linked variant takes its stock and price from that SKU
+   * (services/variants.ts), and the SKU is written to the Shopify variant.
+   */
+  sku: string;
   /** true = show the product's plain default photos, no dedicated gallery attached (Shopify falls back to the product's default images, same as every variant before this feature existed). false = this variant gets its own photo gallery — see VariantColorImageSet. Exclusive across rows in the UI (see VariantsTable) — only one variant at a time uses the default images. */
   useDefaultImages: boolean;
 }
@@ -46,6 +53,7 @@ function normalizeVariantRow(entry: unknown): VariantRow {
     netWeightGrams: hasWeights ? (raw.netWeightGrams as number) : 0,
     inventory: typeof raw.inventory === "number" ? raw.inventory : 0,
     useDefaultImages: Boolean(raw.useDefaultImages),
+    sku: typeof raw.sku === "string" ? raw.sku.trim() : "",
   };
 }
 
@@ -132,6 +140,15 @@ export function validateVariantRows(rows: VariantRow[]): string | null {
         return "A variant's Net weight can't be greater than its Gross weight.";
       }
     }
+  }
+
+  // Each variant is a physical piece, so it has to be registered in Inventory first.
+  if (rows.some((row) => !row.sku.trim())) {
+    return "Every variant needs its Inventory SKU. Register the piece on the Inventory page first, then pick it here.";
+  }
+  const skus = rows.map((row) => row.sku.trim().toUpperCase()).filter(Boolean);
+  if (new Set(skus).size !== skus.length) {
+    return "Two variants have the same SKU — each variant is its own piece and needs its own SKU.";
   }
 
   const seen = new Set<string>();

@@ -225,7 +225,7 @@ export function AddStockCard({ items }: { items: InventoryItem[] }) {
                 Find the design that arrived — weigh a piece and type the weight to see the closest matches. Only add a new
                 design if it really isn&apos;t here.
               </p>
-              <ItemPicker items={items} onPick={(item) => chooseForRestock(item)} />
+              <ItemPicker items={items} onPick={(item) => chooseForRestock(item)} compact />
             </div>
           )
         ) : (

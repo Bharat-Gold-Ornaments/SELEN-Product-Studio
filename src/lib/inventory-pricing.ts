@@ -10,6 +10,7 @@ import {
 } from "@/lib/pricing";
 import type { InventoryItem } from "@/types/inventory";
 import type { ProductRecord } from "@/types/product";
+import type { VariantRow } from "@/lib/variants";
 
 /**
  * An Inventory item's pricing inputs, in the shape the pricing formulas and
@@ -92,15 +93,17 @@ export function inventoryPrice(item: InventoryItem, ratePerGram: number): number
 }
 
 /**
- * A product's saved pricing as Inventory pricing — used to fill in an
- * Inventory item that was never priced from the product already created
- * from it. Finalize only keeps the final price for an override, so the
+ * A product's (or one variant's) saved pricing as Inventory pricing — used
+ * to fill in an Inventory item that was never priced from the product
+ * already selling it. Finalize only keeps the final price for an override, so the
  * pre-GST amount is backed out (the same estimate Finalize itself shows).
  */
-export function pricingFromProduct(record: ProductRecord): InventoryPricing | null {
+export function pricingFromProduct(record: ProductRecord, variant?: VariantRow): InventoryPricing | null {
   if (!(record.netWeightGrams > 0)) return null;
+  // A variant with its own weight was priced from that weight, with the product's making charge and stones.
+  const ownWeight = variant && !variant.sameAsMainPrice && variant.netWeightGrams > 0;
   return {
-    netWeightGrams: record.netWeightGrams,
+    netWeightGrams: ownWeight ? variant.netWeightGrams : record.netWeightGrams,
     makingChargeMode: record.makingChargeMode,
     makingChargeValue: record.makingChargeValue,
     stoneLineItems: parseStoneLineItems(record.stoneLineItems),
