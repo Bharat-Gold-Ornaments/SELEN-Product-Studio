@@ -1,7 +1,7 @@
 import "server-only";
 import { readAppSettings, writeAppSettings } from "@/services/app-settings";
 import { readConfigFile, writeConfigFile } from "@/services/google-drive";
-import { listProducts, updateProductRow, findProduct, updateInventoryRow } from "@/services/google-sheets";
+import { listProducts, updateProductRow, findProduct, updateInventoryRow, refreshInventoryPrices } from "@/services/google-sheets";
 import { pricingFields } from "@/lib/inventory-pricing";
 import { updateShopifyProductPrice } from "@/services/shopify";
 import {
@@ -55,6 +55,11 @@ export async function updateGlobalRate(newRate: number): Promise<number> {
   await writeAppSettings({ ratePerGram: newRate });
   if (oldRate !== newRate) {
     await appendRateChangeLog({ timestamp: new Date().toISOString(), oldRate, newRate, changedBy: "admin" });
+    // The Inventory tab's price column is only a read-out — a failure here
+    // doesn't undo the rate change, and the next write of a row corrects it.
+    await refreshInventoryPrices(newRate).catch((error) => {
+      console.error("Couldn't recalculate the Inventory price column", error);
+    });
   }
   return newRate;
 }

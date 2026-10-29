@@ -80,6 +80,7 @@ export async function POST(request: Request) {
       shopifyProductId,
       createdDate: new Date().toISOString(),
       ...pricingFields(pricing),
+      price: 0, // calculated when the row is written
     };
     await appendInventoryRow(item);
     await logInventoryPageChange("new", item.sku, item.quantity, item.quantity);

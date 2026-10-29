@@ -297,6 +297,7 @@ export async function linkProduct(input: LinkProductInput): Promise<LinkProductR
         manualPriceOverride: false,
         manualPriceOverrideValue: 0,
         ...(pricing ? pricingFields(pricing) : {}),
+        price: 0, // calculated when the row is written
       };
       await appendInventoryRow(item);
       await appendStockLogEntries([

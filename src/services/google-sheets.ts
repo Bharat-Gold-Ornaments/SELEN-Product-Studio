@@ -3,6 +3,8 @@ import { google, type sheets_v4 } from "googleapis";
 import { requireEnv, optionalEnv } from "@/lib/env";
 import type { ProductRecord, ProductType, ProductStatus } from "@/types/product";
 import type { InventoryCategory, InventoryItem } from "@/types/inventory";
+import { readAppSettings } from "@/services/app-settings";
+import { inventoryPrice } from "@/lib/inventory-pricing";
 import type { StockLogEntry } from "@/types/stock-log";
 
 // ── Client setup ─────────────────────────────────────────────────────────
@@ -503,7 +505,12 @@ const INVENTORY_COLUMNS = [
   "stoneLineItems",
   "manualPriceOverride",
   "manualPriceOverrideValue",
+  // Appended for the calculated price — same append-only rule. Derived, never
+  // read back as an input (see inventoryItemToRow).
+  "price",
 ] as const satisfies readonly (keyof InventoryItem)[];
+
+const INVENTORY_PRICE_COLUMN_LETTER = columnLetter(INVENTORY_COLUMNS.indexOf("price"));
 
 const INVENTORY_LAST_COLUMN_LETTER = columnLetter(INVENTORY_COLUMNS.length - 1);
 
@@ -543,6 +550,7 @@ async function ensureInventoryTab(): Promise<void> {
   // a column appended since, and a renamed column (column A started out as
   // "productCode" before becoming "sku"). Safe because positions never move.
   const existing = header.data.values?.[0] ?? [];
+  const priceColumnIsNew = existing[INVENTORY_COLUMNS.indexOf("price")] !== "price";
   if (INVENTORY_COLUMNS.some((name, i) => existing[i] !== name)) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: spreadsheetId(),
@@ -551,13 +559,40 @@ async function ensureInventoryTab(): Promise<void> {
       requestBody: { values: [[...INVENTORY_COLUMNS]] },
     });
   }
+  // Set before the backfill below, which itself reads the tab.
   inventoryTabEnsured = true;
+
+  // First run after the price column was added: fill it in for every existing row.
+  if (priceColumnIsNew) {
+    await refreshInventoryPrices().catch((error) => {
+      console.error("Couldn't fill in the Inventory price column", error);
+    });
+  }
+}
+
+/**
+ * The silver rate the price column is calculated at. A failed Settings read
+ * leaves prices blank rather than failing the Inventory write it's part of.
+ */
+async function currentRatePerGram(): Promise<number> {
+  try {
+    return (await readAppSettings()).ratePerGram;
+  } catch (error) {
+    console.error("Couldn't read the rate for the Inventory price column", error);
+    return 0;
+  }
+}
+
+/** The price column's value: calculated from the row's own pricing inputs, never taken from `item.price`. */
+function inventoryPriceCell(item: InventoryItem, ratePerGram: number): number | string {
+  return inventoryPrice(item, ratePerGram) ?? "";
 }
 
 // Numbers stay numbers (so weight/quantity sum in the sheet); everything
 // else is written as text.
-function inventoryItemToRow(item: InventoryItem): (string | number)[] {
+function inventoryItemToRow(item: InventoryItem, ratePerGram: number): (string | number)[] {
   return INVENTORY_COLUMNS.map((key) => {
+    if (key === "price") return inventoryPriceCell(item, ratePerGram);
     const value = item[key];
     return typeof value === "number" ? value : String(value ?? "");
   });
@@ -580,6 +615,7 @@ function rowToInventoryItem(row: string[]): InventoryItem {
     stoneLineItems: get(10),
     manualPriceOverride: get(11).toLowerCase() === "true",
     manualPriceOverrideValue: Number(get(12)) || 0,
+    price: Number(get(13)) || 0,
   };
 }
 
@@ -608,13 +644,42 @@ export async function listInventoryItems(): Promise<InventoryItem[]> {
 export async function appendInventoryRow(item: InventoryItem): Promise<void> {
   await ensureInventoryTab();
   const sheets = getSheetsClient();
+  const ratePerGram = await currentRatePerGram();
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: spreadsheetId(),
     range: `${inventoryTabName()}!A:${INVENTORY_LAST_COLUMN_LETTER}`,
     valueInputOption: "RAW",
     insertDataOption: "INSERT_ROWS",
-    requestBody: { values: [inventoryItemToRow(item)] },
+    requestBody: { values: [inventoryItemToRow(item, ratePerGram)] },
+  });
+}
+
+/**
+ * Recalculates the whole price column — after the rate changes, and once to
+ * fill it in for rows written before it existed. Writes only that column, so
+ * it can't overwrite a stock change made at the same moment. `ratePerGram`
+ * defaults to the saved rate.
+ */
+export async function refreshInventoryPrices(ratePerGram?: number): Promise<void> {
+  const rate = ratePerGram ?? (await currentRatePerGram());
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: spreadsheetId(),
+    range: `${inventoryTabName()}!A2:${INVENTORY_LAST_COLUMN_LETTER}`,
+  });
+  const rows = res.data.values ?? [];
+  if (rows.length === 0) return;
+
+  const prices = rows.map((row) => {
+    const isBlank = !row.some((value) => value !== "" && value != null);
+    return [isBlank ? "" : inventoryPriceCell(rowToInventoryItem(row.map((v) => (v == null ? "" : String(v)))), rate)];
+  });
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: spreadsheetId(),
+    range: `${inventoryTabName()}!${INVENTORY_PRICE_COLUMN_LETTER}2:${INVENTORY_PRICE_COLUMN_LETTER}${rows.length + 1}`,
+    valueInputOption: "RAW",
+    requestBody: { values: prices },
   });
 }
 
@@ -674,13 +739,15 @@ export async function updateInventoryRow(
 
   const current = rowToInventoryItem(rows[index].map((value) => (value == null ? "" : String(value))));
   const merged: InventoryItem = { ...current, ...update };
+  const ratePerGram = await currentRatePerGram();
+  merged.price = inventoryPrice(merged, ratePerGram) ?? 0;
 
   const rowNumber = index + 2; // +1 for 0-index, +1 for header row
   await sheets.spreadsheets.values.update({
     spreadsheetId: spreadsheetId(),
     range: `${inventoryTabName()}!A${rowNumber}:${INVENTORY_LAST_COLUMN_LETTER}${rowNumber}`,
     valueInputOption: "RAW",
-    requestBody: { values: [inventoryItemToRow(merged)] },
+    requestBody: { values: [inventoryItemToRow(merged, ratePerGram)] },
   });
   return { previous: current, item: merged };
 }

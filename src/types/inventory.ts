@@ -27,4 +27,11 @@ export interface InventoryItem {
   manualPriceOverride: boolean;
   /** The typed override price, before GST. Only used when manualPriceOverride is on. */
   manualPriceOverrideValue: number;
+  /**
+   * The sticker price (GST-inclusive, rounded) these inputs give at the
+   * current rate — written to the sheet for people reading it there. Never an
+   * input: it's recalculated on every row write and whenever the rate
+   * changes, so editing it by hand has no effect. 0 when the item isn't priced.
+   */
+  price: number;
 }
