@@ -150,8 +150,8 @@ export function InventoryOverview({ items, listedSkus, onSelect }: InventoryOver
                 <th className="px-4 py-2 text-right font-medium">SKUs</th>
                 <th className="px-4 py-2 text-right font-medium">Metal</th>
                 <th className="px-4 py-2 text-right font-medium">Weight range</th>
-                <th className="px-4 py-2 text-right font-medium">Out</th>
-                <th className="px-4 py-2 text-right font-medium">Low</th>
+                <th className="px-4 py-2 text-right font-medium">Out of stock</th>
+                <th className="px-4 py-2 text-right font-medium">Low (1 qty left)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -209,8 +209,8 @@ export function InventoryOverview({ items, listedSkus, onSelect }: InventoryOver
                 <th className="px-4 py-2 text-right font-medium">SKUs</th>
                 <th className="px-4 py-2 text-right font-medium">Pieces</th>
                 <th className="px-4 py-2 text-right font-medium">Metal</th>
-                <th className="px-4 py-2 text-right font-medium">Out</th>
-                <th className="px-4 py-2 text-right font-medium">Low</th>
+                <th className="px-4 py-2 text-right font-medium">Out of stock</th>
+                <th className="px-4 py-2 text-right font-medium">Low (1 qty left)</th>
                 <th className="px-4 py-2 font-medium">Range</th>
                 <th className="px-4 py-2 font-medium">Missing numbers</th>
               </tr>
