@@ -54,6 +54,7 @@ export const NAV_ITEMS = [
   { href: "/products/create", label: "Create Product", icon: "Sparkles" },
   { href: "/uploads", label: "Upload Photos", icon: "Camera" },
   { href: "/inventory", label: "Inventory", icon: "Boxes" },
+  { href: "/price", label: "Price List", icon: "IndianRupee" },
   { href: "/sales", label: "Sales", icon: "ShoppingBag" },
   { href: "/reconciliation", label: "Reconciliation", icon: "ListChecks" },
   { href: "/templates", label: "Template Manager", icon: "FileText" },

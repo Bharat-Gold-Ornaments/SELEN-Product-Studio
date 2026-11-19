@@ -13,6 +13,7 @@ import {
   Boxes,
   ListChecks,
   ShoppingBag,
+  IndianRupee,
   type LucideIcon,
 } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/constants";
@@ -29,6 +30,7 @@ const ICONS: Record<string, LucideIcon> = {
   Boxes,
   ListChecks,
   ShoppingBag,
+  IndianRupee,
 };
 
 /**
